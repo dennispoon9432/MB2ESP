@@ -44,25 +44,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     setEditingId(null);
   };
 
-  const renderThumbnail = (pattern?: string) => {
-    const raw = pattern || '01010:11111:11111:01110:00100';
-    const rows = raw.split(':');
+  const renderThumbnail = (proj: Project) => {
     return (
-      <div className="w-24 h-24 bg-slate-950 rounded-xl p-2.5 grid grid-cols-5 gap-1.5 shadow-inner border border-slate-800">
-        {rows.flatMap((r, rowIdx) =>
-          r.split('').map((c, colIdx) => {
-            const isLit = c === '1';
-            return (
-              <div
-                key={`${rowIdx}-${colIdx}`}
-                className={`rounded-sm transition-all ${
-                  isLit ? 'bg-amber-400 shadow-[0_0_6px_#f59e0b]' : 'bg-slate-850'
-                }`}
-                style={{ backgroundColor: isLit ? '#FF3333' : '#1A2530' }}
-              />
-            );
-          })
-        )}
+      <div className="w-32 h-16 bg-[#04080E] rounded-lg p-2 shadow-inner border-2 border-slate-800 flex flex-col justify-between overflow-hidden relative font-mono text-[9px] text-[#00E5FF]">
+        <div className="flex justify-between items-center text-[7px] text-slate-500 uppercase border-b border-slate-850 pb-0.5">
+          <span>128×64 OLED</span>
+          <span className="text-emerald-400">MB2ESP</span>
+        </div>
+        <div className="flex-1 flex flex-col justify-center items-center text-center py-1">
+          <span className="font-bold tracking-tight truncate max-w-full text-[#00E5FF]">
+            {proj.name}
+          </span>
+          <span className="text-[7px] text-slate-400">
+            {proj.isPythonEdited ? 'MicroPython' : 'Blocks'}
+          </span>
+        </div>
+        <div className="w-full h-0.5 bg-[#00E5FF]/30 rounded-full" />
       </div>
     );
   };
@@ -165,7 +162,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               >
                 {/* Card Thumbnail Area */}
                 <div className="bg-slate-950/80 p-5 flex items-center justify-center border-b border-slate-800/80 relative">
-                  {renderThumbnail(proj.thumbnailLed)}
+                  {renderThumbnail(proj)}
 
                   {/* Badges */}
                   <div className="absolute top-3 left-3 flex gap-1">

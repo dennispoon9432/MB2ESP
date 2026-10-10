@@ -20,30 +20,6 @@ export function registerPythonGenerators(): void {
     return `\n@forever\ndef forever_loop():\n${safeBody}\n`;
   };
 
-  pythonGenerator.forBlock['mb_show_number'] = function (block) {
-    const num = pythonGenerator.valueToCode(block, 'NUMBER', Order.NONE) || '0';
-    return `display.show_number(${num})\n`;
-  };
-
-  pythonGenerator.forBlock['mb_show_leds'] = function (block) {
-    const leds = block.getFieldValue('LEDS') || '00000:00000:00000:00000:00000';
-    return `display.show_leds("${leds}")\n`;
-  };
-
-  pythonGenerator.forBlock['mb_show_icon'] = function (block) {
-    const icon = block.getFieldValue('ICON') || 'HEART';
-    return `display.show_icon(Image.${icon})\n`;
-  };
-
-  pythonGenerator.forBlock['mb_show_string'] = function (block) {
-    const textVal = pythonGenerator.valueToCode(block, 'TEXT', Order.NONE) || '""';
-    return `display.show_string(${textVal})\n`;
-  };
-
-  pythonGenerator.forBlock['mb_clear_screen'] = function () {
-    return 'display.clear()\n';
-  };
-
   pythonGenerator.forBlock['mb_pause'] = function (block) {
     const ms = pythonGenerator.valueToCode(block, 'MS', Order.NONE) || '100';
     return `pause(${ms})\n`;
@@ -69,16 +45,11 @@ export function registerPythonGenerators(): void {
   };
 
   // Display / OLED category
-  pythonGenerator.forBlock['mb_plot'] = function (block) {
+  pythonGenerator.forBlock['mb_oled_show_number'] = function (block) {
+    const num = pythonGenerator.valueToCode(block, 'NUMBER', Order.NONE) || '0';
     const x = pythonGenerator.valueToCode(block, 'X', Order.NONE) || '0';
     const y = pythonGenerator.valueToCode(block, 'Y', Order.NONE) || '0';
-    return `display.plot(${x}, ${y})\n`;
-  };
-
-  pythonGenerator.forBlock['mb_unplot'] = function (block) {
-    const x = pythonGenerator.valueToCode(block, 'X', Order.NONE) || '0';
-    const y = pythonGenerator.valueToCode(block, 'Y', Order.NONE) || '0';
-    return `display.unplot(${x}, ${y})\n`;
+    return `oled.text(str(${num}), ${x}, ${y})\n`;
   };
 
   pythonGenerator.forBlock['mb_oled_show_text'] = function (block) {

@@ -73,8 +73,12 @@ export const BlocklyWorkspace: React.FC<BlocklyWorkspaceProps> = ({
         minScale: 0.4,
         scaleSpeed: 1.15
       },
+      move: {
+        scrollbars: false,
+        drag: true,
+        wheel: true
+      },
       trashcan: true,
-      scrollbars: true,
       sounds: false,
       renderer: 'geras'
     });
@@ -124,18 +128,26 @@ export const BlocklyWorkspace: React.FC<BlocklyWorkspaceProps> = ({
 
     ws.addChangeListener(changeListener);
 
-    // Initial resize
+    // Initial resize and trigger initial simulation
     setTimeout(() => {
       Blockly.svgResize(ws);
-    }, 100);
+      try {
+        const xmlDom = Blockly.Xml.workspaceToDom(ws);
+        const xmlText = Blockly.Xml.domToText(xmlDom);
+        const pyCode = generatePythonCode(ws, project.extensions);
+        onWorkspaceChange(xmlText, pyCode);
+      } catch (e) {}
+    }, 150);
 
-    const handleResize = () => {
+    const resizeObserver = new ResizeObserver(() => {
       Blockly.svgResize(ws);
-    };
-    window.addEventListener('resize', handleResize);
+    });
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       if (changeTimeoutRef.current) clearTimeout(changeTimeoutRef.current);
       ws.dispose();
       workspaceRef.current = null;

@@ -152,64 +152,19 @@ async function executeSingleBlock(
   const type = block.type;
 
   switch (type) {
-    case 'mb_show_number': {
-      const val = evalInputValue(block, 'NUMBER', sim, vars, 0);
-      sim.showNumber(val);
-      await sim.pause(200);
-      break;
-    }
-
-    case 'mb_show_leds': {
-      const leds = block.getFieldValue('LEDS') || '00000:00000:00000:00000:00000';
-      sim.showLeds(leds);
-      await sim.pause(100);
-      break;
-    }
-
-    case 'mb_show_icon': {
-      const icon = block.getFieldValue('ICON') || 'HEART';
-      sim.showIcon(icon);
-      await sim.pause(100);
-      break;
-    }
-
-    case 'mb_show_string': {
-      const textVal = evalInputValue(block, 'TEXT', sim, vars, '');
-      await sim.showString(String(textVal));
-      break;
-    }
-
-    case 'mb_clear_screen': {
-      sim.clear();
-      await sim.pause(50);
-      break;
-    }
-
-    case 'mb_pause': {
-      const ms = evalInputValue(block, 'MS', sim, vars, 100);
-      await sim.pause(Math.max(10, ms));
-      break;
-    }
-
-    case 'mb_plot': {
-      const x = evalInputValue(block, 'X', sim, vars, 0);
-      const y = evalInputValue(block, 'Y', sim, vars, 0);
-      sim.plot(x, y);
-      break;
-    }
-
-    case 'mb_unplot': {
-      const x = evalInputValue(block, 'X', sim, vars, 0);
-      const y = evalInputValue(block, 'Y', sim, vars, 0);
-      sim.unplot(x, y);
-      break;
-    }
-
     case 'mb_oled_show_text': {
       const text = evalInputValue(block, 'TEXT', sim, vars, '');
       const x = evalInputValue(block, 'X', sim, vars, 0);
       const y = evalInputValue(block, 'Y', sim, vars, 0);
-      sim.oledText(String(text), x, y);
+      sim.oledText(String(text), Number(x), Number(y));
+      break;
+    }
+
+    case 'mb_oled_show_number': {
+      const num = evalInputValue(block, 'NUMBER', sim, vars, 0);
+      const x = evalInputValue(block, 'X', sim, vars, 0);
+      const y = evalInputValue(block, 'Y', sim, vars, 0);
+      sim.oledText(String(num), Number(x), Number(y));
       break;
     }
 
@@ -218,7 +173,7 @@ async function executeSingleBlock(
       const y1 = evalInputValue(block, 'Y1', sim, vars, 0);
       const x2 = evalInputValue(block, 'X2', sim, vars, 0);
       const y2 = evalInputValue(block, 'Y2', sim, vars, 0);
-      sim.oledLine(x1, y1, x2, y2);
+      sim.oledLine(Number(x1), Number(y1), Number(x2), Number(y2));
       break;
     }
 
@@ -227,12 +182,18 @@ async function executeSingleBlock(
       const y = evalInputValue(block, 'Y', sim, vars, 0);
       const w = evalInputValue(block, 'W', sim, vars, 10);
       const h = evalInputValue(block, 'H', sim, vars, 10);
-      sim.oledRect(x, y, w, h);
+      sim.oledRect(Number(x), Number(y), Number(w), Number(h));
       break;
     }
 
     case 'mb_oled_clear': {
       sim.oledClear();
+      break;
+    }
+
+    case 'mb_pause': {
+      const ms = evalInputValue(block, 'MS', sim, vars, 100);
+      await sim.pause(Math.max(10, ms));
       break;
     }
 
@@ -269,7 +230,7 @@ async function executeSingleBlock(
         await runBlockStatement(doBlock, sim, vars);
         await sim.pause(10);
         safetyCounter++;
-        if (safetyCounter > 5000) break; // infinite loop guard
+        if (safetyCounter > 5000) break;
       }
       break;
     }
@@ -309,7 +270,6 @@ async function executeSingleBlock(
     }
 
     default:
-      // Other unhandled block types: gracefully step over
       break;
   }
 }
@@ -318,7 +278,7 @@ async function executeSingleBlock(
  * Top-level program starter for the Blockly workspace
  */
 export async function executeWorkspace(workspace: Blockly.Workspace, sim: MB2ESPSimulator): Promise<void> {
-  sim.restart();
+  const signal = sim.prepareNewRun();
   const vars: Record<string, any> = {};
 
   const topBlocks = workspace.getTopBlocks(true);
@@ -345,10 +305,10 @@ export async function executeWorkspace(workspace: Blockly.Workspace, sim: MB2ESP
   if (foreverBlock) {
     const foreverDo = foreverBlock.getInputTargetBlock('DO');
     (async () => {
-      while (!sim.getAbortSignal()?.aborted) {
+      while (!signal.aborted) {
         try {
           await runBlockStatement(foreverDo, sim, vars);
-          await sim.pause(20); // cooperative yield
+          await sim.pause(30); // cooperative yield between loop iterations
         } catch (e: any) {
           if (e?.message === 'SIMULATION_STOPPED') break;
           console.warn('Forever loop exception:', e);

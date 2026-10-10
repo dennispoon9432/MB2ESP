@@ -70,8 +70,7 @@ export function createNewProject(name?: string): Project {
       bleChunkSize: 180,
       language: 'en',
       simulatorSpeed: 1
-    },
-    thumbnailLed: '01010:11111:11111:01110:00100'
+    }
   };
 
   const projects = getAllProjects();
@@ -84,21 +83,19 @@ export function createNewProject(name?: string): Project {
 function createInitialProject(): Project {
   return {
     id: 'proj_starter_sample',
-    name: 'Flashing Heart',
+    name: 'OLED Screen Demo',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     blocklyXml: DEFAULT_START_BLOCKLY_XML,
     pythonCode: `from pixl import *
 
 # on start
-display.show_icon(Image.HEART)
-display.show_string("Hello MB2ESP")
+oled.clear()
+oled.text("MB2ESP", 0, 0)
 
 @forever
 def loop():
-    display.show_icon(Image.HEART)
-    pause(500)
-    display.show_icon(Image.SMALL_HEART)
+    oled.text("Running...", 0, 24)
     pause(500)
 
 run()`,
@@ -109,8 +106,7 @@ run()`,
       bleChunkSize: 180,
       language: 'en',
       simulatorSpeed: 1
-    },
-    thumbnailLed: '01010:11111:11111:01110:00100'
+    }
   };
 }
 

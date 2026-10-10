@@ -13,3 +13,13 @@
 .app-modal-overlay {
   z-index: 99999 !important;
 }
+
+/* Completely hide workspace scrollbars to eliminate center sliding bar */
+.blocklyScrollbarVertical,
+.blocklyScrollbarHorizontal,
+.blocklyScrollbarHandle,
+.blocklyScrollbarBackground {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

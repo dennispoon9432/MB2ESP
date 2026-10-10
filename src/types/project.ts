@@ -40,33 +40,54 @@ export interface Project {
 export const DEFAULT_START_BLOCKLY_XML = `<xml xmlns="https://developers.google.com/blockly/xml">
   <block type="mb_on_start" x="80" y="50">
     <statement name="DO">
-      <block type="mb_show_icon">
-        <field name="ICON">HEART</field>
+      <block type="mb_oled_clear">
         <next>
-          <block type="mb_show_string">
-            <field name="TEXT">Hello MB2ESP</field>
+          <block type="mb_oled_show_text">
+            <value name="TEXT">
+              <shadow type="text">
+                <field name="TEXT">MB2ESP</field>
+              </shadow>
+            </value>
+            <value name="X">
+              <shadow type="mb_math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+            <value name="Y">
+              <shadow type="mb_math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
           </block>
         </next>
       </block>
     </statement>
   </block>
-  <block type="mb_forever" x="80" y="220">
+  <block type="mb_forever" x="80" y="240">
     <statement name="DO">
-      <block type="mb_show_icon">
-        <field name="ICON">HEART</field>
+      <block type="mb_oled_show_text">
+        <value name="TEXT">
+          <shadow type="text">
+            <field name="TEXT">Running...</field>
+          </shadow>
+        </value>
+        <value name="X">
+          <shadow type="mb_math_number">
+            <field name="NUM">0</field>
+          </shadow>
+        </value>
+        <value name="Y">
+          <shadow type="mb_math_number">
+            <field name="NUM">24</field>
+          </shadow>
+        </value>
         <next>
           <block type="mb_pause">
-            <field name="MS">500</field>
-            <next>
-              <block type="mb_show_icon">
-                <field name="ICON">SMALL_HEART</field>
-                <next>
-                  <block type="mb_pause">
-                    <field name="MS">500</field>
-                  </block>
-                </next>
-              </block>
-            </next>
+            <value name="MS">
+              <shadow type="mb_math_number">
+                <field name="NUM">500</field>
+              </shadow>
+            </value>
           </block>
         </next>
       </block>

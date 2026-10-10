@@ -18,13 +18,27 @@ export function getToolbox(extensions: ProjectExtension[] = []): any {
       name: 'Basic',
       colour: COLOR_BASIC,
       contents: [
-        { kind: 'block', type: 'mb_show_number', inputs: { NUMBER: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } } } },
-        { kind: 'block', type: 'mb_show_leds' },
-        { kind: 'block', type: 'mb_show_icon' },
-        { kind: 'block', type: 'mb_show_string', inputs: { TEXT: { shadow: { type: 'text', fields: { TEXT: 'Hello!' } } } } },
-        { kind: 'block', type: 'mb_clear_screen' },
+        {
+          kind: 'block',
+          type: 'mb_oled_show_text',
+          inputs: {
+            TEXT: { shadow: { type: 'text', fields: { TEXT: 'MB2ESP' } } },
+            X: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } },
+            Y: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } }
+          }
+        },
+        {
+          kind: 'block',
+          type: 'mb_oled_show_number',
+          inputs: {
+            NUMBER: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } },
+            X: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } },
+            Y: { shadow: { type: 'mb_math_number', fields: { NUM: 16 } } }
+          }
+        },
+        { kind: 'block', type: 'mb_oled_clear' },
+        { kind: 'block', type: 'mb_pause', inputs: { MS: { shadow: { type: 'mb_math_number', fields: { NUM: 500 } } } } },
         { kind: 'block', type: 'mb_forever' },
-        { kind: 'block', type: 'mb_pause', inputs: { MS: { shadow: { type: 'mb_math_number', fields: { NUM: 100 } } } } },
         { kind: 'block', type: 'mb_on_start' }
       ]
     },
@@ -45,27 +59,20 @@ export function getToolbox(extensions: ProjectExtension[] = []): any {
       contents: [
         {
           kind: 'block',
-          type: 'mb_plot',
-          inputs: {
-            X: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } },
-            Y: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } }
-          }
-        },
-        {
-          kind: 'block',
-          type: 'mb_unplot',
-          inputs: {
-            X: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } },
-            Y: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } }
-          }
-        },
-        {
-          kind: 'block',
           type: 'mb_oled_show_text',
           inputs: {
-            TEXT: { shadow: { type: 'text', fields: { TEXT: 'MB2ESP' } } },
+            TEXT: { shadow: { type: 'text', fields: { TEXT: 'Hello' } } },
             X: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } },
             Y: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } }
+          }
+        },
+        {
+          kind: 'block',
+          type: 'mb_oled_show_number',
+          inputs: {
+            NUMBER: { shadow: { type: 'mb_math_number', fields: { NUM: 123 } } },
+            X: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } },
+            Y: { shadow: { type: 'mb_math_number', fields: { NUM: 16 } } }
           }
         },
         {

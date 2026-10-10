@@ -173,21 +173,24 @@ export default function App() {
     e.target.value = '';
   };
 
+  // Connect simulator restart listener to re-run the workspace on RST or reset button
+  useEffect(() => {
+    simulator.setRestartListener(() => {
+      if (workspaceRef.current && !activeProject.isPythonMode) {
+        executeWorkspace(workspaceRef.current, simulator).catch(err => {
+          console.warn('Restart simulation error:', err);
+        });
+      }
+    });
+  }, [simulator, activeProject.isPythonMode]);
+
   // Handle workspace change (auto-save and rerun simulator)
   const handleWorkspaceChange = (xmlText: string, pythonCode: string) => {
-    // Determine thumbnail LED pattern if available in XML
-    let thumb = activeProject.thumbnailLed;
-    const match = xmlText.match(/<field name="LEDS">([01:]{29})<\/field>/);
-    if (match) {
-      thumb = match[1];
-    }
-
     const updated: Project = {
       ...activeProject,
       blocklyXml: xmlText,
       // If user has not detached into custom python mode, sync generated python
-      pythonCode: activeProject.isPythonEdited ? activeProject.pythonCode : pythonCode,
-      thumbnailLed: thumb
+      pythonCode: activeProject.isPythonEdited ? activeProject.pythonCode : pythonCode
     };
 
     saveProject(updated);
