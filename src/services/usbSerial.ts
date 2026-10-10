@@ -18,8 +18,10 @@ type StateChangeListener = (state: USBSerialState) => void;
 class USBSerialService {
   private port: any | null = null;
   private reader: any | null = null;
-  private writer: any | null = null;
   private isReading = false;
+  private keepReading = false;
+  private readingPromise: Promise<void> | null = null;
+  private isDisconnecting = false;
   private readBuffer: string = '';
   private state: USBSerialState = {
     status: 'disconnected',
@@ -30,6 +32,21 @@ class USBSerialService {
 
   private serialListeners: Set<SerialDataListener> = new Set();
   private stateListeners: Set<StateChangeListener> = new Set();
+
+  constructor() {
+    if (typeof navigator !== 'undefined' && 'serial' in navigator) {
+      try {
+        (navigator as any).serial.addEventListener('disconnect', (event: any) => {
+          if (this.port && event.port === this.port) {
+            console.log('USB device disconnected by physical removal');
+            this.disconnect();
+          }
+        });
+      } catch (e) {
+        // Event listener might not be supported on all browsers
+      }
+    }
+  }
 
   public isSupported(): boolean {
     return typeof navigator !== 'undefined' && 'serial' in navigator;
@@ -84,7 +101,8 @@ class USBSerialService {
       }
 
       this.port = port;
-      this.startReading();
+      this.keepReading = true;
+      this.readingPromise = this.startReading();
 
       this.updateState({
         status: 'connected',
@@ -104,62 +122,126 @@ class USBSerialService {
     }
   }
 
-  private async startReading() {
+  private async startReading(): Promise<void> {
     if (!this.port || !this.port.readable || this.isReading) return;
     this.isReading = true;
 
     try {
-      while (this.port && this.port.readable) {
-        this.reader = this.port.readable.getReader();
+      while (this.port && this.port.readable && this.keepReading) {
+        try {
+          this.reader = this.port.readable.getReader();
+        } catch (lockErr) {
+          console.warn('Could not acquire reader lock:', lockErr);
+          break;
+        }
+
         const decoder = new TextDecoder('utf-8');
 
         try {
-          while (true) {
+          while (this.keepReading) {
             const { value, done } = await this.reader.read();
-            if (done) break;
+            if (done) {
+              // Stream ended or cancelled
+              break;
+            }
             if (value) {
               const text = decoder.decode(value);
               this.readBuffer += text;
               this.emitSerial(text);
             }
           }
-        } catch (readErr) {
-          console.warn('USB read stream error:', readErr);
+        } catch (readErr: any) {
+          if (this.keepReading) {
+            console.warn('USB read stream error:', readErr);
+          }
+          break;
         } finally {
-          this.reader.releaseLock();
+          try {
+            if (this.reader) {
+              this.reader.releaseLock();
+            }
+          } catch (e) {
+            // Lock may already be released
+          }
           this.reader = null;
+        }
+
+        // Prevent infinite spin if keepReading was set to false
+        if (!this.keepReading) {
+          break;
         }
       }
     } catch (e) {
       console.warn('USB stream ended:', e);
     } finally {
       this.isReading = false;
-      if (this.port) {
-        this.handleDisconnected();
-      }
+      this.keepReading = false;
     }
   }
 
   public async disconnect(): Promise<void> {
+    if (this.isDisconnecting) return;
+    this.isDisconnecting = true;
+
     try {
+      // 1. Signal background loop to terminate immediately
+      this.keepReading = false;
+
+      // 2. Cancel active reader so read() promise returns
       if (this.reader) {
-        await this.reader.cancel();
+        try {
+          await Promise.race([
+            this.reader.cancel(),
+            new Promise(r => setTimeout(r, 400))
+          ]);
+        } catch (cancelErr) {
+          console.warn('USB reader cancel error:', cancelErr);
+        }
       }
+
+      // 3. Wait for background reading loop to completely finish and release lock
+      if (this.readingPromise) {
+        try {
+          await Promise.race([
+            this.readingPromise,
+            new Promise(r => setTimeout(r, 500))
+          ]);
+        } catch (readPromiseErr) {
+          console.warn('USB reading promise error:', readPromiseErr);
+        }
+        this.readingPromise = null;
+      }
+
+      // 4. Force release lock if still held
+      if (this.reader) {
+        try {
+          this.reader.releaseLock();
+        } catch (e) {}
+        this.reader = null;
+      }
+
+      // 5. Close port safely
       if (this.port) {
-        await this.port.close();
+        try {
+          await this.port.close();
+        } catch (closeErr) {
+          console.warn('USB port close error:', closeErr);
+        }
       }
     } catch (e) {
       console.warn('USB disconnect error:', e);
     } finally {
       this.handleDisconnected();
+      this.isDisconnecting = false;
     }
   }
 
   private handleDisconnected() {
     this.port = null;
     this.reader = null;
-    this.writer = null;
     this.isReading = false;
+    this.keepReading = false;
+    this.readingPromise = null;
     this.readBuffer = '';
     this.updateState({
       status: 'disconnected',
@@ -171,13 +253,17 @@ class USBSerialService {
 
   public async sendText(text: string): Promise<void> {
     if (!this.port || !this.port.writable) return;
-    const encoder = new TextEncoder();
-    const data = encoder.encode(text);
-    const writer = this.port.writable.getWriter();
     try {
-      await writer.write(data);
-    } finally {
-      writer.releaseLock();
+      const encoder = new TextEncoder();
+      const data = encoder.encode(text);
+      const writer = this.port.writable.getWriter();
+      try {
+        await writer.write(data);
+      } finally {
+        writer.releaseLock();
+      }
+    } catch (e) {
+      console.warn('USB sendText error:', e);
     }
   }
 

@@ -320,7 +320,11 @@ export default function App() {
 
   // Disconnect USB Web Serial
   const handleDisconnectUsb = async () => {
-    await usbSerialService.disconnect();
+    try {
+      await usbSerialService.disconnect();
+    } catch (err: any) {
+      console.warn('USB Serial disconnect error:', err);
+    }
   };
 
   // Flash code to MB2ESP board (USB or Bluetooth)
