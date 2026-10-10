@@ -2,13 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Terminal, Trash2, Send, X, ArrowDown } from 'lucide-react';
 import { AppStrings } from '../i18n/strings';
 import { bluetoothService } from '../services/bluetooth';
+import { usbSerialService } from '../services/usbSerial';
 
 interface SerialConsoleProps {
   logs: string[];
   onClear: () => void;
   onClose: () => void;
   strings: AppStrings;
-  isConnected: boolean;
+  isBleConnected: boolean;
+  isUsbConnected: boolean;
 }
 
 export const SerialConsole: React.FC<SerialConsoleProps> = ({
@@ -16,11 +18,14 @@ export const SerialConsole: React.FC<SerialConsoleProps> = ({
   onClear,
   onClose,
   strings,
-  isConnected
+  isBleConnected,
+  isUsbConnected
 }) => {
   const [inputText, setInputText] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
   const logContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const isConnected = isBleConnected || isUsbConnected;
 
   useEffect(() => {
     if (autoScroll && logContainerRef.current) {
@@ -32,8 +37,11 @@ export const SerialConsole: React.FC<SerialConsoleProps> = ({
     e.preventDefault();
     if (!inputText.trim()) return;
 
-    if (isConnected) {
-      await bluetoothService.sendSerial(inputText + '\r\n');
+    const toSend = inputText + '\r\n';
+    if (isUsbConnected) {
+      await usbSerialService.sendText(toSend);
+    } else if (isBleConnected) {
+      await bluetoothService.sendSerial(toSend);
     }
     setInputText('');
   };
@@ -48,7 +56,11 @@ export const SerialConsole: React.FC<SerialConsoleProps> = ({
             {strings.serialConsole}
           </span>
           <span className="text-[10px] text-slate-500">
-            {isConnected ? '● Connected (115200 baud)' : '○ Simulator / Offline'}
+            {isUsbConnected
+              ? '● USB REPL (115200 baud)'
+              : isBleConnected
+              ? '● BLE UART (115200 baud)'
+              : '○ Simulator / Offline'}
           </span>
         </div>
 
@@ -100,14 +112,14 @@ export const SerialConsole: React.FC<SerialConsoleProps> = ({
         )}
       </div>
 
-      {/* Input box for sending to UART */}
+      {/* Input box for sending to UART / REPL */}
       <form onSubmit={handleSend} className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border-t border-slate-800">
         <span className="text-slate-500 font-bold">&gt;</span>
         <input
           type="text"
           value={inputText}
           onChange={e => setInputText(e.target.value)}
-          placeholder={isConnected ? "Send command to MB2ESP..." : "Connect board to send UART commands"}
+          placeholder={isConnected ? "Send command to MB2ESP..." : "Connect USB or BLE to send serial commands"}
           disabled={!isConnected}
           className="flex-1 bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 text-xs font-mono disabled:opacity-50"
         />

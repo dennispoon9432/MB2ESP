@@ -30,6 +30,7 @@ Designed with an intuitive, touch-friendly interface following the familiar bloc
 - **Extensibility:**
   - Built-in extensions for **NeoPixel (WS2812)** and **Servo Motors**.
   - Dynamic GitHub extension loader: import custom drivers and blocks from any GitHub repo with `blocks.json` and `ext.py`.
+  - **Hardware Rule:** Extensions that touch hardware pins must call `pin_gpio(P-number)` to get the physical ESP32-S3 GPIO pin.
 
 - **iPad & Tablet Friendly:**
   - Large touch targets, finger-draggable blocks, and no hover-only requirements.
@@ -40,43 +41,57 @@ Designed with an intuitive, touch-friendly interface following the familiar bloc
 
 ---
 
-## MicroPython Runtime (`pixl.py`)
+## ESP32-S3 Hardware Pin Mapping
 
-The board runs a pre-installed MicroPython library `pixl.py`. The generated code adheres strictly to this specification:
+The MB2ESP board uses an ESP32-S3 microcontroller. Logical P-numbers are mapped on-board via `pixl.py`:
 
-```python
-from pixl import *
-
-# on start
-display.show_icon(Image.HEART)
-display.show_string("Hello MB2ESP")
-
-@on_button("A")
-def on_button_a():
-    display.show_number(1)
-
-@forever
-def forever_loop():
-    display.show_icon(Image.HEART)
-    pause(500)
-    display.show_icon(Image.SMALL_HEART)
-    pause(500)
-
-run()  # always the last line
-```
+| MB2ESP Pin | ESP32-S3 GPIO | Analog (ADC) | Description |
+|---|---|---|---|
+| **P0** | GPIO1 | Yes | Analog & Digital I/O |
+| **P1** | GPIO2 | Yes | Analog & Digital I/O |
+| **P2** | GPIO4 | Yes | Analog & Digital I/O |
+| **P3** | GPIO5 | Yes | Analog & Digital I/O |
+| **P4** | GPIO6 | Yes | Analog & Digital I/O |
+| **P5** | GPIO7 | Yes | Analog & Digital I/O |
+| **P6** | GPIO15 | No | Digital I/O |
+| **P7** | GPIO16 | No | Digital I/O |
+| **P8** | GPIO17 | No | Digital I/O |
+| **OLED SDA** | GPIO8 | - | I2C Data |
+| **OLED SCL** | GPIO9 | - | I2C Clock |
 
 ---
 
-## Bluetooth Flashing Protocol
+## Bluetooth BLE Flashing Protocol
 
 - **Service UUID:** `6e400001-b5a3-f393-e0a9-e50e24dcca9e` (Nordic UART Service)
 - **RX Characteristic (Write):** `6e400002-b5a3-f393-e0a9-e50e24dcca9e`
 - **TX Characteristic (Notify):** `6e400003-b5a3-f393-e0a9-e50e24dcca9e`
 - **Packet Protocol:**
   1. `[0x01]` = START packet
-  2. `[0x02, ...chunk]` = DATA packet (up to 180 bytes UTF-8 per chunk)
-  3. `[0x03]` = END packet
-  4. Wait for board response `"OK"` on TX, which commits `main.py` and resets the board.
+  2. `[0x02, ...chunk]` = DATA packet (default 180 bytes UTF-8 per chunk)
+  3. `[0x03, length (uint32 LE), CRC-32 (uint32 LE)]` = END packet (9 bytes total).
+     - `length`: total UTF-8 byte length of `main.py`
+     - `CRC-32`: standard IEEE 802.3 / zlib CRC-32 checksum
+  4. Wait up to 5 seconds for TX notification:
+     - `"OK"` = success. Board commits `main.py` and resets.
+     - `"ERR:..."` = failure; automatically retries the entire transfer up to 3 times (falling back to 100-byte chunks on 2 failures).
+     - If GATT connection drops after END before `"OK"`, treated as success if no `"ERR:"` was received.
+- **Safety Rule:** Never writes `boot.py` or `pixl.py`; Flash always writes `main.py` only.
+
+---
+
+## USB Web Serial Flashing Protocol (Desktop Chrome & Edge)
+
+- Connects at **115200 baud** using Web Serial API (`navigator.serial.requestPort()`).
+- Sets `dataTerminalReady: false, requestToSend: false` on connect to prevent resetting the ESP32-S3.
+- Flashes directly into `main.py` via MicroPython Raw REPL:
+  1. Sends `"\r\x03\x03"` (Ctrl-C x2) to interrupt, waits 200 ms.
+  2. Sends `"\r\x01"` (Ctrl-A) to enter raw REPL, waits for `">"`.
+  3. Sends `f=open('main.py','wb')\nw=f.write\nimport binascii\n\x04` and verifies `OK`.
+  4. Streams base64 encoded slices (192 bytes each): `w(binascii.a2b_base64('...'))\n\x04`.
+  5. Closes file with `f.close()\n\x04`.
+  6. Sends `"\x02"` (Ctrl-B exit raw REPL) and `"\x04"` (Ctrl-D soft reset) to run `main.py`.
+- Keeps port open after flashing for interactive Serial Console / REPL communications.
 
 ---
 

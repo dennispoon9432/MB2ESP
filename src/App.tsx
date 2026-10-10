@@ -21,6 +21,7 @@ import {
   importProjectFromJson
 } from './services/storage';
 import { bluetoothService, BluetoothState } from './services/bluetooth';
+import { usbSerialService, USBSerialState } from './services/usbSerial';
 import { MB2ESPSimulator } from './simulator/MB2ESPSimulator';
 import { executeWorkspace } from './simulator/simulatorInterpreter';
 import { getStrings } from './i18n/strings';
@@ -47,9 +48,10 @@ export default function App() {
     return found || projects[0] || createNewProject();
   });
 
-  // Simulator & Bluetooth State
+  // Simulator, Bluetooth & USB State
   const simulator = useMemo(() => new MB2ESPSimulator(), []);
   const [bluetoothState, setBluetoothState] = useState<BluetoothState>(() => bluetoothService.getState());
+  const [usbState, setUsbState] = useState<USBSerialState>(() => usbSerialService.getState());
   const [serialLogs, setSerialLogs] = useState<string[]>([]);
   const [isSerialOpen, setIsSerialOpen] = useState(false);
 
@@ -72,14 +74,22 @@ export default function App() {
   // Strings / i18n
   const strings = useMemo(() => getStrings(activeProject.settings?.language || 'en'), [activeProject.settings?.language]);
 
-  // Sync Bluetooth state & Serial listener
+  // Sync Bluetooth, USB & Simulator listeners
   useEffect(() => {
     const unbindState = bluetoothService.addStateListener(state => {
       setBluetoothState(state);
     });
 
+    const unbindUsbState = usbSerialService.addStateListener(state => {
+      setUsbState(state);
+    });
+
     const unbindSerial = bluetoothService.addSerialListener(data => {
-      setSerialLogs(prev => [...prev.slice(-300), `[MB2ESP RX] ${data}`]);
+      setSerialLogs(prev => [...prev.slice(-300), `[MB2ESP BLE] ${data}`]);
+    });
+
+    const unbindUsbSerial = usbSerialService.addSerialListener(data => {
+      setSerialLogs(prev => [...prev.slice(-300), data]);
     });
 
     const unbindSimLog = simulator.addLogListener(data => {
@@ -88,7 +98,9 @@ export default function App() {
 
     return () => {
       unbindState();
+      unbindUsbState();
       unbindSerial();
+      unbindUsbSerial();
       unbindSimLog();
     };
   }, [simulator]);
@@ -297,45 +309,96 @@ export default function App() {
     await bluetoothService.disconnect();
   };
 
-  // Flash code to MB2ESP board
-  const handleFlash = async () => {
-    if (!bluetoothService.isSupported()) {
-      setShowBtUnsupportedModal(true);
-      return;
-    }
-
+  // Connect USB Web Serial
+  const handleConnectUsb = async () => {
     try {
-      // Prepend all installed extensions' Python driver code into main.py
-      const extPys = activeProject.extensions.map(e => `# Extension: ${e.name}\n${e.extPy}`).join('\n\n');
-      const fullPythonCode = extPys ? `${extPys}\n\n${activeProject.pythonCode}` : activeProject.pythonCode;
-
-      setSerialLogs(prev => [
-        ...prev,
-        `[MB2ESP FLASH] Starting upload (${fullPythonCode.length} bytes)...`
-      ]);
-
-      await bluetoothService.flashCode(fullPythonCode, activeProject.settings?.bleChunkSize || 180);
-
-      // Trigger celebratory confetti on flash success!
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.85 }
-      });
-
-      setSerialLogs(prev => [
-        ...prev,
-        `[MB2ESP FLASH] Successfully flashed code to board! Resetting...`
-      ]);
+      await usbSerialService.connect();
     } catch (err: any) {
-      if (err.message === 'WEB_BLUETOOTH_UNSUPPORTED') {
-        setShowBtUnsupportedModal(true);
-      } else {
+      console.warn('USB Serial connect error:', err);
+    }
+  };
+
+  // Disconnect USB Web Serial
+  const handleDisconnectUsb = async () => {
+    await usbSerialService.disconnect();
+  };
+
+  // Flash code to MB2ESP board (USB or Bluetooth)
+  const handleFlash = async () => {
+    // Prepend all installed extensions' Python driver code into main.py
+    // Never upload boot.py or pixl.py; flash always writes main.py only
+    const extPys = activeProject.extensions.map(e => `# Extension: ${e.name}\n${e.extPy}`).join('\n\n');
+    const fullPythonCode = extPys ? `${extPys}\n\n${activeProject.pythonCode}` : activeProject.pythonCode;
+
+    // 1. If USB Serial is connected, flash via USB raw REPL
+    if (usbSerialService.isConnected()) {
+      try {
         setSerialLogs(prev => [
           ...prev,
-          `[MB2ESP FLASH ERROR] ${err.message || 'Transmission failed'}`
+          `\n[MB2ESP USB] Starting flash to main.py (${fullPythonCode.length} bytes)...`
         ]);
+        await usbSerialService.flashCode(fullPythonCode);
+        confetti({
+          particleCount: 80,
+          spread: 60,
+          origin: { y: 0.85 }
+        });
+        setSerialLogs(prev => [
+          ...prev,
+          `[MB2ESP USB] Code flashed successfully! Soft reset completed.\n`
+        ]);
+        return;
+      } catch (err: any) {
+        setSerialLogs(prev => [
+          ...prev,
+          `[MB2ESP USB ERROR] ${err.message || 'USB upload failed'}\n`
+        ]);
+        return;
       }
+    }
+
+    // 2. If Bluetooth BLE is connected, flash via BLE
+    if (bluetoothState.status === 'connected') {
+      try {
+        setSerialLogs(prev => [
+          ...prev,
+          `\n[MB2ESP BLE] Starting flash to main.py (${fullPythonCode.length} bytes)...`
+        ]);
+        await bluetoothService.flashCode(fullPythonCode, activeProject.settings?.bleChunkSize || 180);
+        confetti({
+          particleCount: 80,
+          spread: 60,
+          origin: { y: 0.85 }
+        });
+        setSerialLogs(prev => [
+          ...prev,
+          `[MB2ESP BLE] Successfully flashed code to main.py! Board restarted.\n`
+        ]);
+        return;
+      } catch (err: any) {
+        setSerialLogs(prev => [
+          ...prev,
+          `[MB2ESP BLE ERROR] ${err.message || 'BLE upload failed'}\n`
+        ]);
+        return;
+      }
+    }
+
+    // 3. If neither is connected, prompt user based on browser capabilities
+    if (usbSerialService.isSupported()) {
+      // Connect USB first if supported
+      try {
+        const connected = await usbSerialService.connect();
+        if (connected) {
+          await handleFlash();
+        }
+      } catch (e) {
+        // User may choose BLE instead
+      }
+    } else if (bluetoothService.isSupported()) {
+      await handleConnect();
+    } else {
+      setShowBtUnsupportedModal(true);
     }
   };
 
@@ -410,17 +473,22 @@ export default function App() {
                   onClear={() => setSerialLogs([])}
                   onClose={() => setIsSerialOpen(false)}
                   strings={strings}
-                  isConnected={bluetoothState.status === 'connected'}
+                  isBleConnected={bluetoothState.status === 'connected'}
+                  isUsbConnected={usbState.status === 'connected'}
                 />
               )}
             </div>
           </div>
 
-          {/* Bottom Bar: Big Connect, Big Flash, and Pairing button */}
+          {/* Bottom Bar: Big Connect, Connect USB, Big Flash, and Pairing button */}
           <BottomBar
             bluetoothState={bluetoothState}
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
+            usbState={usbState}
+            onConnectUsb={handleConnectUsb}
+            onDisconnectUsb={handleDisconnectUsb}
+            isUsbSupported={usbSerialService.isSupported()}
             onFlash={handleFlash}
             onOpenPairingHelp={() => setShowPairingModal(true)}
             onToggleSerial={() => setIsSerialOpen(!isSerialOpen)}

@@ -33,6 +33,11 @@ export interface AppStrings {
   pairingStep2: string;
   pairingStep3: string;
   pairingStep4: string;
+  pairingPrototypeNote: string;
+  pairingUsbHelp: string;
+  connectUsb: string;
+  disconnectUsb: string;
+  connectedToUsb: string;
   bluetoothNotSupportedTitle: string;
   bluetoothNotSupportedDesc1: string;
   bluetoothNotSupportedDesc2: string;
@@ -103,9 +108,14 @@ export const stringsEn: AppStrings = {
   pairingHelp: "Pairing Guide",
   pairingHelpTitle: "How to connect your MB2ESP board",
   pairingStep1: "Turn on your MB2ESP board using USB or battery.",
-  pairingStep2: "Hold Button A and tap the Reset button once.",
+  pairingStep2: "Press and release RESET, then press Button A while the screen says 'Press A for BLE upload'.",
   pairingStep3: "The OLED screen will display 'PIXL-XXXX' with your board's unique name.",
   pairingStep4: "Click 'Connect' below and select your 'PIXL-XXXX' board from the Bluetooth list.",
+  pairingPrototypeNote: "On the ESP32-S3 DevKit prototype, Button A is the BOOT button. Don't hold it while pressing RESET.",
+  pairingUsbHelp: "USB: plug in the board, click Connect USB and choose the port. No buttons needed.",
+  connectUsb: "Connect USB",
+  disconnectUsb: "Disconnect USB",
+  connectedToUsb: "Connected via USB",
   bluetoothNotSupportedTitle: "Web Bluetooth Required",
   bluetoothNotSupportedDesc1: "Your current browser does not support Web Bluetooth.",
   bluetoothNotSupportedDesc2: "On iPad / iPhone: Open this app in the free 'Bluefy' browser app. On Mac, Windows, Chromebook, or Android: Use Google Chrome or Microsoft Edge.",
@@ -176,9 +186,14 @@ export const stringsZh: AppStrings = {
   pairingHelp: "配對指南",
   pairingHelpTitle: "如何配對 MB2ESP 板",
   pairingStep1: "使用 USB 線或電池開啟 MB2ESP 電源。",
-  pairingStep2: "按住 A 按鈕，同時點按一下 Reset 復位鍵。",
+  pairingStep2: "按下並鬆開 RESET 復位鍵，當屏幕顯示「Press A for BLE upload」時按下 A 按鍵。",
   pairingStep3: "OLED 屏幕上將顯示「PIXL-XXXX」設備名稱。",
   pairingStep4: "點擊下方「連接」，在藍牙列表中選擇對應的 PIXL-XXXX 板子。",
+  pairingPrototypeNote: "在 ESP32-S3 開發板原型機上，A 按鍵為 BOOT 按鈕。按下 RESET 時請勿按住它。",
+  pairingUsbHelp: "USB 燒錄：插入板子，點擊「連接 USB」並選擇串口，無需按下任何按鈕。",
+  connectUsb: "連接 USB",
+  disconnectUsb: "斷開 USB",
+  connectedToUsb: "已通過 USB 連接",
   bluetoothNotSupportedTitle: "需要 Web Bluetooth 支援",
   bluetoothNotSupportedDesc1: "您當前的瀏覽器不支援 Web 藍牙功能。",
   bluetoothNotSupportedDesc2: "在 iPad / iPhone 上：請在免費的「Bluefy」瀏覽器中打開。在 電腦/安卓 上：請使用 Google Chrome 或 Edge 瀏覽器。",

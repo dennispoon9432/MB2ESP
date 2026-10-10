@@ -37,7 +37,7 @@ _np = None
 
 def neopixel_init(pin_num=0, num_leds=8):
     global _np
-    _np = neopixel.NeoPixel(machine.Pin(pin_num), num_leds)
+    _np = neopixel.NeoPixel(machine.Pin(pin_gpio(pin_num)), num_leds)
 
 def neopixel_set(index, r, g, b):
     global _np

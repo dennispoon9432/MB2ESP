@@ -73,6 +73,18 @@ export const PairingHelpModal: React.FC<PairingHelpModalProps> = ({ onClose, str
           </div>
         </div>
 
+        {/* Prototype note */}
+        <div className="p-3 bg-amber-950/40 border border-amber-800/60 rounded-xl text-amber-200 text-xs flex items-start gap-2">
+          <HelpCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <span>{strings.pairingPrototypeNote}</span>
+        </div>
+
+        {/* USB Help */}
+        <div className="p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl text-emerald-200 text-xs flex items-start gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+          <span>{strings.pairingUsbHelp}</span>
+        </div>
+
         {/* Note banner */}
         <div className="p-3 bg-sky-950/40 border border-sky-800/60 rounded-xl text-sky-200 text-xs flex items-center gap-2">
           <HelpCircle className="w-4 h-4 text-sky-400 shrink-0" />

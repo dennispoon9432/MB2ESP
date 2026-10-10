@@ -1,5 +1,6 @@
 import * as Blockly from 'blockly';
 import { ProjectExtension } from '../types/project';
+import { DIGITAL_PIN_OPTIONS, ANALOG_PIN_OPTIONS } from '../board/pinMap';
 
 export const COLOR_BASIC = '#1E90FF';
 export const COLOR_INPUT = '#D400D4';
@@ -176,23 +177,11 @@ export function registerAllBlocks(): void {
 
   // === PINS CATEGORY (#B22222) ===
 
-  const PIN_OPTIONS: [string, string][] = [
-    ['P0', '0'],
-    ['P1', '1'],
-    ['P2', '2'],
-    ['P3', '3'],
-    ['P4', '4'],
-    ['P5', '5'],
-    ['P6', '6'],
-    ['P7', '7'],
-    ['P8', '8']
-  ];
-
   Blockly.Blocks['mb_digital_write_pin'] = {
     init: function () {
       this.appendDummyInput()
         .appendField('digital write pin')
-        .appendField(new Blockly.FieldDropdown(PIN_OPTIONS), 'PIN')
+        .appendField(new Blockly.FieldDropdown(DIGITAL_PIN_OPTIONS), 'PIN')
         .appendField('to');
       this.appendValueInput('VALUE')
         .setCheck('Number');
@@ -200,7 +189,7 @@ export function registerAllBlocks(): void {
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setColour(COLOR_PINS);
-      this.setTooltip('Set digital pin output to 0 (LOW) or 1 (HIGH)');
+      this.setTooltip('Set digital pin output to 0 (LOW) or 1 (HIGH). Pins P0–P8 map to ESP32-S3 GPIO1, 2, 4, 5, 6, 7, 15, 16, 17.');
     }
   };
 
@@ -208,10 +197,10 @@ export function registerAllBlocks(): void {
     init: function () {
       this.appendDummyInput()
         .appendField('digital read pin')
-        .appendField(new Blockly.FieldDropdown(PIN_OPTIONS), 'PIN');
+        .appendField(new Blockly.FieldDropdown(DIGITAL_PIN_OPTIONS), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour(COLOR_PINS);
-      this.setTooltip('Read digital value (0 or 1) from pin');
+      this.setTooltip('Read digital value (0 or 1) from pin. Pins P0–P8 map to ESP32-S3 GPIO1, 2, 4, 5, 6, 7, 15, 16, 17.');
     }
   };
 
@@ -219,10 +208,10 @@ export function registerAllBlocks(): void {
     init: function () {
       this.appendDummyInput()
         .appendField('analog read pin')
-        .appendField(new Blockly.FieldDropdown(PIN_OPTIONS), 'PIN');
+        .appendField(new Blockly.FieldDropdown(ANALOG_PIN_OPTIONS), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour(COLOR_PINS);
-      this.setTooltip('Read analog voltage (0 to 1023) from pin');
+      this.setTooltip('Read analog voltage (0 to 1023) from pin. Only P0–P5 are analog-capable on ESP32-S3 (GPIO1, 2, 4, 5, 6, 7).');
     }
   };
 
@@ -230,7 +219,7 @@ export function registerAllBlocks(): void {
     init: function () {
       this.appendDummyInput()
         .appendField('servo write pin')
-        .appendField(new Blockly.FieldDropdown(PIN_OPTIONS), 'PIN')
+        .appendField(new Blockly.FieldDropdown(DIGITAL_PIN_OPTIONS), 'PIN')
         .appendField('to angle');
       this.appendValueInput('ANGLE')
         .setCheck('Number');
@@ -238,7 +227,7 @@ export function registerAllBlocks(): void {
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setColour(COLOR_PINS);
-      this.setTooltip('Rotate servo motor on pin to specified angle (0 to 180 degrees)');
+      this.setTooltip('Rotate servo motor on pin to specified angle (0 to 180 degrees). P0–P8 map to ESP32-S3 GPIO1, 2, 4, 5, 6, 7, 15, 16, 17.');
     }
   };
 

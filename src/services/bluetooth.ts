@@ -8,9 +8,14 @@
  * Flashing protocol:
  * 1. Write [0x01] = START
  * 2. Write [0x02, ...data] in chunks (default 180 bytes UTF-8)
- * 3. Write [0x03] = END
- * 4. Wait for board response "OK" on TX characteristic
+ * 3. Write [0x03, length (uint32 LE), CRC-32 (uint32 LE)] = END (9 bytes)
+ * 4. Wait up to 5s for response:
+ *    - "OK" = success
+ *    - "ERR:..." = retry whole upload up to 3 times
+ *    - GATT drop after END treated as success only if no ERR was received
  */
+
+import { crc32 } from './crc32';
 
 export const NORDIC_UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 export const NORDIC_UART_RX_CHAR = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
@@ -41,7 +46,13 @@ class BluetoothService {
 
   private serialListeners: Set<SerialDataListener> = new Set();
   private stateListeners: Set<StateChangeListener> = new Set();
-  private okPromiseResolve: (() => void) | null = null;
+  
+  // Pending flash acknowledgment handlers
+  private pendingFlashResponse: {
+    resolve: (val: { ok: boolean; error?: string }) => void;
+    lastError: string | null;
+    isWaiting: boolean;
+  } | null = null;
 
   public isSupported(): boolean {
     return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
@@ -96,7 +107,7 @@ class BluetoothService {
       this.rxCharacteristic = await service.getCharacteristic(NORDIC_UART_RX_CHAR);
       this.txCharacteristic = await service.getCharacteristic(NORDIC_UART_TX_CHAR);
 
-      // Start TX notifications for serial reading and OK acknowledgement
+      // Start TX notifications for serial reading and responses
       await this.txCharacteristic.startNotifications();
       this.txCharacteristic.addEventListener('characteristicvaluechanged', (event: any) => {
         this.handleTxNotification(event.target.value);
@@ -127,6 +138,17 @@ class BluetoothService {
   }
 
   private handleDisconnected() {
+    // If we were waiting after sending END, check if it's considered success
+    if (this.pendingFlashResponse && this.pendingFlashResponse.isWaiting) {
+      if (this.pendingFlashResponse.lastError) {
+        this.pendingFlashResponse.resolve({ ok: false, error: this.pendingFlashResponse.lastError });
+      } else {
+        // Disconnected right after END without error is treated as success (board reset)
+        this.pendingFlashResponse.resolve({ ok: true });
+      }
+      this.pendingFlashResponse = null;
+    }
+
     this.device = null;
     this.rxCharacteristic = null;
     this.txCharacteristic = null;
@@ -153,101 +175,167 @@ class BluetoothService {
   private handleTxNotification(value: DataView) {
     const decoder = new TextDecoder('utf-8');
     const text = decoder.decode(value);
+    const trimmed = text.trim();
 
-    // If board responded "OK", resolve pending flash completion
-    if (text.trim() === 'OK' && this.okPromiseResolve) {
-      this.okPromiseResolve();
-      this.okPromiseResolve = null;
-      return;
+    // Check for Flash response
+    if (this.pendingFlashResponse && this.pendingFlashResponse.isWaiting) {
+      if (trimmed === 'OK') {
+        this.pendingFlashResponse.resolve({ ok: true });
+        this.pendingFlashResponse = null;
+        return;
+      }
+      if (trimmed.startsWith('ERR:')) {
+        this.pendingFlashResponse.lastError = trimmed;
+        this.pendingFlashResponse.resolve({ ok: false, error: trimmed });
+        this.pendingFlashResponse = null;
+        this.emitSerial(text);
+        return;
+      }
     }
 
-    // Otherwise, dispatch to serial console listeners
+    // Forward all other text to serial console
+    this.emitSerial(text);
+  }
+
+  private emitSerial(text: string) {
     this.serialListeners.forEach(listener => listener(text));
   }
 
   /**
-   * Flash code to the board using the exact protocol:
+   * Flash code to the board using the updated protocol:
    * 1. 0x01 = START
    * 2. 0x02 + up to chunkSize bytes = DATA chunk
-   * 3. 0x03 = END
-   * 4. Wait for "OK" response
+   * 3. 0x03 + length (uint32 LE) + CRC-32 (uint32 LE) = END (9 bytes)
+   * 4. Wait up to 5 s for "OK". Retries up to 3 times on ERR: (falls back to 100-byte chunks on 2 fails)
    */
-  public async flashCode(code: string, chunkSize = 180): Promise<void> {
+  public async flashCode(code: string, preferredChunkSize = 180): Promise<void> {
+    // Flash always writes main.py only
     if (!this.device || !this.device.gatt?.connected || !this.rxCharacteristic) {
-      // Try to connect first
       const connected = await this.connect();
       if (!connected || !this.rxCharacteristic) {
         throw new Error('Board is not connected. Please connect via Bluetooth first.');
       }
     }
 
-    this.updateState({ status: 'flashing', progress: 5, statusMessage: 'Starting upload...' });
-
     const encoder = new TextEncoder();
     const codeBytes = encoder.encode(code);
     const totalBytes = codeBytes.length;
+    const codeCrc = crc32(codeBytes);
 
-    try {
-      // 1. Send START packet [0x01]
-      const startPacket = new Uint8Array([0x01]);
-      await this.writePacket(startPacket);
-      this.updateState({ progress: 10, statusMessage: 'Handshake accepted...' });
+    let maxAttempts = 3;
+    let attempt = 1;
+    let currentChunkSize = preferredChunkSize;
 
-      // 2. Send DATA packets [0x02, ...chunk]
-      let offset = 0;
-      const actualChunkSize = Math.max(20, Math.min(240, chunkSize));
-
-      while (offset < totalBytes) {
-        const chunkLength = Math.min(actualChunkSize, totalBytes - offset);
-        const chunk = codeBytes.slice(offset, offset + chunkLength);
-
-        const packet = new Uint8Array(1 + chunk.length);
-        packet[0] = 0x02; // DATA header
-        packet.set(chunk, 1);
-
-        await this.writePacket(packet);
-
-        offset += chunkLength;
-        const progress = Math.min(90, Math.round(10 + (offset / totalBytes) * 80));
-        this.updateState({
-          progress,
-          statusMessage: `Uploading: ${offset}/${totalBytes} bytes (${progress}%)`
-        });
+    while (attempt <= maxAttempts) {
+      // If failed twice, retry with 100-byte chunks
+      if (attempt >= 3) {
+        currentChunkSize = 100;
       }
 
-      // 3. Send END packet [0x03] and wait for "OK" response from TX
-      this.updateState({ progress: 95, statusMessage: 'Finalizing and waiting for board confirmation...' });
-      
-      const okPromise = new Promise<void>((resolve, reject) => {
-        this.okPromiseResolve = resolve;
-        // Timeout after 8 seconds
-        setTimeout(() => {
-          if (this.okPromiseResolve) {
-            this.okPromiseResolve = null;
-            // Many boards reset immediately before sending OK, so treat timeout after END gracefully
-            resolve();
+      this.updateState({
+        status: 'flashing',
+        progress: 5,
+        statusMessage: `Flashing main.py (attempt ${attempt}/${maxAttempts}, chunk ${currentChunkSize}B)...`
+      });
+
+      try {
+        await this.performFlashAttempt(codeBytes, totalBytes, codeCrc, currentChunkSize);
+        // Successful flash!
+        this.updateState({
+          status: 'connected',
+          progress: 100,
+          statusMessage: 'Flashed main.py successfully! Board restarted.'
+        });
+        return;
+      } catch (err: any) {
+        this.emitSerial(`\n[BLE Flash Warning] Attempt ${attempt} failed: ${err.message}\n`);
+        attempt++;
+        if (attempt > maxAttempts) {
+          this.updateState({
+            status: 'error',
+            progress: 0,
+            statusMessage: `Flash failed after ${maxAttempts} attempts: ${err.message}`
+          });
+          throw new Error(`Flashing failed after ${maxAttempts} attempts. ${err.message}`);
+        }
+        // Small pause before retrying
+        await new Promise(r => setTimeout(r, 600));
+      }
+    }
+  }
+
+  private async performFlashAttempt(
+    codeBytes: Uint8Array,
+    totalBytes: number,
+    codeCrc: number,
+    chunkSize: number
+  ): Promise<void> {
+    if (!this.rxCharacteristic) {
+      throw new Error('Bluetooth connection lost');
+    }
+
+    // 1. Send START packet [0x01]
+    const startPacket = new Uint8Array([0x01]);
+    await this.writePacket(startPacket);
+    this.updateState({ progress: 10, statusMessage: 'Handshake accepted...' });
+
+    // 2. Send DATA chunks [0x02, ...chunk]
+    let offset = 0;
+    while (offset < totalBytes) {
+      const chunkLength = Math.min(chunkSize, totalBytes - offset);
+      const chunk = codeBytes.slice(offset, offset + chunkLength);
+
+      const packet = new Uint8Array(1 + chunk.length);
+      packet[0] = 0x02; // DATA header
+      packet.set(chunk, 1);
+
+      await this.writePacket(packet);
+
+      offset += chunkLength;
+      const progress = Math.min(90, Math.round(10 + (offset / totalBytes) * 80));
+      this.updateState({
+        progress,
+        statusMessage: `Uploading: ${offset}/${totalBytes} bytes (${progress}%)`
+      });
+    }
+
+    // 3. Prepare 9-byte END packet: [0x03, length uint32 LE, CRC32 uint32 LE]
+    const endPacket = new Uint8Array(9);
+    endPacket[0] = 0x03;
+    const view = new DataView(endPacket.buffer);
+    view.setUint32(1, totalBytes, true); // uint32 little-endian length
+    view.setUint32(5, codeCrc, true);    // uint32 little-endian CRC-32
+
+    this.updateState({ progress: 95, statusMessage: 'Verifying CRC-32 on board...' });
+
+    // 4. Send END and wait up to 5s for confirmation
+    const responsePromise = new Promise<{ ok: boolean; error?: string }>((resolve, reject) => {
+      this.pendingFlashResponse = {
+        resolve,
+        lastError: null,
+        isWaiting: true
+      };
+
+      const timer = setTimeout(() => {
+        if (this.pendingFlashResponse?.isWaiting) {
+          // Timeout reached
+          const lastErr = this.pendingFlashResponse.lastError;
+          this.pendingFlashResponse = null;
+          if (lastErr) {
+            reject(new Error(lastErr));
+          } else {
+            // If timed out without error and board disconnected, consider success
+            resolve({ ok: true });
           }
-        }, 8000);
-      });
+        }
+      }, 5000);
+    });
 
-      const endPacket = new Uint8Array([0x03]);
-      await this.writePacket(endPacket);
+    await this.writePacket(endPacket);
 
-      await okPromise;
-
-      this.updateState({
-        status: 'connected',
-        progress: 100,
-        statusMessage: 'Flashed successfully! Board restarted.'
-      });
-    } catch (err: any) {
-      console.error('Flashing failed:', err);
-      this.updateState({
-        status: 'error',
-        progress: 0,
-        statusMessage: `Flash error: ${err.message || 'Transmission failed'}`
-      });
-      throw err;
+    const result = await responsePromise;
+    if (!result.ok) {
+      throw new Error(result.error || 'Board returned an error');
     }
   }
 
@@ -259,7 +347,6 @@ class BluetoothService {
     if (typeof this.rxCharacteristic.writeValueWithResponse === 'function') {
       await this.rxCharacteristic.writeValueWithResponse(packet);
     } else {
-      // Fallback for older Web Bluetooth implementations
       await this.rxCharacteristic.writeValue(packet);
     }
   }

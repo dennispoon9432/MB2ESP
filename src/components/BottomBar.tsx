@@ -1,12 +1,17 @@
 import React from 'react';
-import { Bluetooth, Download, HelpCircle, Terminal, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Bluetooth, Download, HelpCircle, Terminal, CheckCircle2, AlertCircle, Usb } from 'lucide-react';
 import { BluetoothState } from '../services/bluetooth';
+import { USBSerialState } from '../services/usbSerial';
 import { AppStrings } from '../i18n/strings';
 
 interface BottomBarProps {
   bluetoothState: BluetoothState;
   onConnect: () => void;
   onDisconnect: () => void;
+  usbState: USBSerialState;
+  onConnectUsb: () => void;
+  onDisconnectUsb: () => void;
+  isUsbSupported: boolean;
   onFlash: () => void;
   onOpenPairingHelp: () => void;
   onToggleSerial: () => void;
@@ -18,19 +23,36 @@ export const BottomBar: React.FC<BottomBarProps> = ({
   bluetoothState,
   onConnect,
   onDisconnect,
+  usbState,
+  onConnectUsb,
+  onDisconnectUsb,
+  isUsbSupported,
   onFlash,
   onOpenPairingHelp,
   onToggleSerial,
   isSerialOpen,
   strings
 }) => {
-  const isConnected = bluetoothState.status === 'connected';
-  const isFlashing = bluetoothState.status === 'flashing';
-  const isConnecting = bluetoothState.status === 'connecting';
+  const isBleConnected = bluetoothState.status === 'connected';
+  const isUsbConnected = usbState.status === 'connected';
+  const isFlashing = bluetoothState.status === 'flashing' || usbState.status === 'flashing';
+  const isBleConnecting = bluetoothState.status === 'connecting';
+  const isUsbConnecting = usbState.status === 'connecting';
+
+  const flashProgress = usbState.status === 'flashing' ? usbState.progress : bluetoothState.progress;
+  const activeStatusMsg = usbState.status === 'flashing'
+    ? usbState.statusMessage
+    : bluetoothState.status === 'flashing'
+    ? bluetoothState.statusMessage
+    : isUsbConnected
+    ? usbState.statusMessage
+    : isBleConnected
+    ? bluetoothState.statusMessage
+    : null;
 
   return (
     <div className="bg-slate-950 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between gap-3 z-20">
-      {/* Left Action Buttons: Big Connect and Big Flash */}
+      {/* Left Action Buttons: Flash, Connect BLE, Connect USB */}
       <div className="flex items-center gap-3">
         {/* Big Flash / Download Button */}
         <div className="relative">
@@ -52,14 +74,14 @@ export const BottomBar: React.FC<BottomBarProps> = ({
             <div className="absolute -top-3 left-0 right-0 bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-700">
               <div
                 className="bg-amber-400 h-full transition-all duration-200"
-                style={{ width: `${bluetoothState.progress}%` }}
+                style={{ width: `${flashProgress}%` }}
               />
             </div>
           )}
         </div>
 
-        {/* Big Connect / Disconnect Button */}
-        {isConnected ? (
+        {/* Big Connect / Disconnect Bluetooth */}
+        {isBleConnected ? (
           <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 shadow">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
             <div className="flex flex-col">
@@ -77,27 +99,53 @@ export const BottomBar: React.FC<BottomBarProps> = ({
         ) : (
           <button
             onClick={onConnect}
-            disabled={isConnecting}
+            disabled={isBleConnecting}
             className="px-4 py-3 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-2 transition shadow-lg shadow-indigo-950/40 active:scale-95 touch-manipulation disabled:opacity-50"
+            title="Connect over Web Bluetooth BLE"
           >
-            <Bluetooth className={`w-5 h-5 ${isConnecting ? 'animate-pulse' : ''}`} />
-            <span>{isConnecting ? strings.connecting : strings.connect}</span>
+            <Bluetooth className={`w-5 h-5 ${isBleConnecting ? 'animate-pulse' : ''}`} />
+            <span>{isBleConnecting ? strings.connecting : strings.connect}</span>
           </button>
         )}
 
+        {/* Connect USB Button (Desktop Chrome/Edge only, hidden if !('serial' in navigator)) */}
+        {isUsbSupported && (
+          isUsbConnected ? (
+            <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 shadow">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
+              <div className="flex flex-col">
+                <span className="text-[11px] font-semibold text-slate-200">
+                  <span className="text-cyan-400">{usbState.deviceName}</span>
+                </span>
+              </div>
+              <button
+                onClick={onDisconnectUsb}
+                className="ml-2 px-2 py-1 bg-slate-800 hover:bg-red-950 hover:text-red-300 text-slate-400 text-xs rounded transition"
+              >
+                {strings.disconnectUsb}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onConnectUsb}
+              disabled={isUsbConnecting}
+              className="px-3.5 py-3 rounded-xl font-semibold text-sm bg-cyan-700 hover:bg-cyan-600 text-white flex items-center gap-2 transition shadow-lg shadow-cyan-950/40 active:scale-95 touch-manipulation disabled:opacity-50"
+              title="Connect over USB Web Serial (115200 baud)"
+            >
+              <Usb className={`w-5 h-5 ${isUsbConnecting ? 'animate-pulse' : ''}`} />
+              <span>{isUsbConnecting ? 'Connecting USB...' : strings.connectUsb}</span>
+            </button>
+          )
+        )}
+
         {/* Status indicator message */}
-        <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
-          {bluetoothState.status === 'flashing' ? (
-            <span className="text-amber-400 font-mono font-medium">{bluetoothState.statusMessage}</span>
-          ) : bluetoothState.status === 'connected' ? (
+        <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-400">
+          {activeStatusMsg ? (
+            <span className="text-slate-300 font-mono font-medium truncate max-w-xs">{activeStatusMsg}</span>
+          ) : (isBleConnected || isUsbConnected) ? (
             <span className="flex items-center gap-1 text-emerald-400">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Ready to flash</span>
-            </span>
-          ) : bluetoothState.status === 'error' ? (
-            <span className="flex items-center gap-1 text-red-400">
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>{bluetoothState.statusMessage}</span>
             </span>
           ) : null}
         </div>

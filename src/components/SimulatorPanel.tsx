@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Play, RotateCcw, Pause, Terminal, Cpu } from 'lucide-react';
 import { MB2ESPSimulator, SimulatorState } from '../simulator/MB2ESPSimulator';
 import { AppStrings } from '../i18n/strings';
+import { MB2ESP_PINS } from '../board/pinMap';
 
 interface SimulatorPanelProps {
   simulator: MB2ESPSimulator;
@@ -195,24 +196,41 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
         {/* Live Pin Monitor Drawer */}
         {showPins && (
           <div className="w-full mt-3 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs">
-            <div className="font-semibold text-slate-300 text-[11px] mb-2 uppercase tracking-wide">
-              {strings.pins} Monitor (P0 - P8)
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-bold text-slate-200 text-[11px] uppercase tracking-wide">
+                ESP32-S3 GPIO Monitor
+              </span>
+              <span className="text-[9px] text-slate-500 font-mono">
+                P0–P5: ADC
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400 mb-2 font-mono">
+              OLED I2C: SDA=GPIO8, SCL=GPIO9
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {Object.entries(simState.pins).map(([pinKey, state]) => {
-                const pinNum = parseInt(pinKey, 10);
+              {MB2ESP_PINS.map(pinDef => {
+                const pinNum = pinDef.pinNumber;
+                const state = simState.pins[pinNum] || { digital: 0, analog: 0, servoAngle: null };
                 return (
-                  <div key={pinKey} className="bg-slate-900 border border-slate-800 rounded p-1.5 flex flex-col">
+                  <div key={pinDef.pinLabel} className="bg-slate-900 border border-slate-800 rounded p-1.5 flex flex-col">
                     <div className="flex justify-between items-center text-[10px]">
-                      <span className="font-mono text-slate-400 font-bold">P{pinNum}</span>
+                      <div>
+                        <span className="font-mono text-slate-200 font-bold">{pinDef.pinLabel}</span>
+                        <span className="text-[9px] text-slate-500 ml-1">({pinDef.gpioLabel})</span>
+                      </div>
                       <span className={`px-1 rounded text-[9px] font-bold ${
                         state.digital ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400'
                       }`}>
                         {state.digital ? 'HIGH' : 'LOW'}
                       </span>
                     </div>
+                    {pinDef.isAnalog && (
+                      <div className="text-[9px] text-sky-400 mt-0.5 font-mono">
+                        ADC: {state.analog}
+                      </div>
+                    )}
                     {state.servoAngle !== null && (
-                      <div className="text-[9px] text-emerald-400 mt-1 font-mono">
+                      <div className="text-[9px] text-emerald-400 mt-0.5 font-mono">
                         Servo: {state.servoAngle}°
                       </div>
                     )}
