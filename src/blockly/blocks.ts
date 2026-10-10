@@ -189,7 +189,7 @@ export function registerAllBlocks(): void {
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setColour(COLOR_PINS);
-      this.setTooltip('Set digital pin output to 0 (LOW) or 1 (HIGH). Pins P0–P8 map to ESP32-S3 GPIO1, 2, 4, 5, 6, 7, 15, 16, 17.');
+      this.setTooltip('Set digital pin output to 0 (LOW) or 1 (HIGH). Usable pins: GPIO 1, 2, 4, 5, 6, 7, 10, 11, 12, 15, 16, 17.');
     }
   };
 
@@ -200,7 +200,7 @@ export function registerAllBlocks(): void {
         .appendField(new Blockly.FieldDropdown(DIGITAL_PIN_OPTIONS), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour(COLOR_PINS);
-      this.setTooltip('Read digital value (0 or 1) from pin. Pins P0–P8 map to ESP32-S3 GPIO1, 2, 4, 5, 6, 7, 15, 16, 17.');
+      this.setTooltip('Read digital value (0 or 1) from GPIO pin. Usable pins: GPIO 1, 2, 4, 5, 6, 7, 10, 11, 12, 15, 16, 17.');
     }
   };
 
@@ -211,7 +211,23 @@ export function registerAllBlocks(): void {
         .appendField(new Blockly.FieldDropdown(ANALOG_PIN_OPTIONS), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour(COLOR_PINS);
-      this.setTooltip('Read analog voltage (0 to 1023) from pin. Only P0–P5 are analog-capable on ESP32-S3 (GPIO1, 2, 4, 5, 6, 7).');
+      this.setTooltip('Read analog voltage (0 to 1023) from GPIO pin. GPIO 1, 2, 4, 5, 6, 7, 10 always work; GPIO 11, 12, 15, 16, 17 do not work while Wi-Fi is on.');
+    }
+  };
+
+  Blockly.Blocks['mb_analog_write_pin'] = {
+    init: function () {
+      this.appendDummyInput()
+        .appendField('analog write pin')
+        .appendField(new Blockly.FieldDropdown(DIGITAL_PIN_OPTIONS), 'PIN')
+        .appendField('to');
+      this.appendValueInput('VALUE')
+        .setCheck('Number');
+      this.setInputsInline(true);
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setColour(COLOR_PINS);
+      this.setTooltip('Write PWM analog value (0 to 1023) to GPIO pin.');
     }
   };
 
@@ -227,7 +243,7 @@ export function registerAllBlocks(): void {
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setColour(COLOR_PINS);
-      this.setTooltip('Rotate servo motor on pin to specified angle (0 to 180 degrees). P0–P8 map to ESP32-S3 GPIO1, 2, 4, 5, 6, 7, 15, 16, 17.');
+      this.setTooltip('Rotate servo motor on GPIO pin to specified angle (0 to 180 degrees). Usable pins: GPIO 1, 2, 4, 5, 6, 7, 10, 11, 12, 15, 16, 17.');
     }
   };
 

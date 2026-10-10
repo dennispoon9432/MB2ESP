@@ -38,6 +38,7 @@ import { ExtensionsModal } from './components/ExtensionsModal';
 import { SettingsModal } from './components/SettingsModal';
 import { PairingHelpModal } from './components/PairingHelpModal';
 import { BluetoothNotSupportedModal } from './components/BluetoothNotSupportedModal';
+import { FirmwareInstallerModal } from './components/FirmwareInstallerModal';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'editor'>('editor');
@@ -60,6 +61,7 @@ export default function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showPairingModal, setShowPairingModal] = useState(false);
   const [showBtUnsupportedModal, setShowBtUnsupportedModal] = useState(false);
+  const [showFirmwareModal, setShowFirmwareModal] = useState(false);
 
   // Active Blockly Workspace ref
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
@@ -518,6 +520,7 @@ export default function App() {
           onSaveSettings={handleSaveSettings}
           onClose={() => setShowSettingsModal(false)}
           strings={strings}
+          onOpenFirmwareInstaller={() => setShowFirmwareModal(true)}
         />
       )}
 
@@ -532,6 +535,12 @@ export default function App() {
         <BluetoothNotSupportedModal
           onClose={() => setShowBtUnsupportedModal(false)}
           strings={strings}
+        />
+      )}
+
+      {showFirmwareModal && (
+        <FirmwareInstallerModal
+          onClose={() => setShowFirmwareModal(false)}
         />
       )}
     </div>

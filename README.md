@@ -41,23 +41,41 @@ Designed with an intuitive, touch-friendly interface following the familiar bloc
 
 ---
 
-## ESP32-S3 Hardware Pin Mapping
+## Real GPIO Pin Mapping (ESP32-S3)
 
-The MB2ESP board uses an ESP32-S3 microcontroller. Logical P-numbers are mapped on-board via `pixl.py`:
+Pins are named by the real physical GPIO numbers printed on the board, and the generated MicroPython uses that same number directly (e.g. `pin_write(10, 1)`, `analog_read(4)`, `servo(15, 90)`).
 
-| MB2ESP Pin | ESP32-S3 GPIO | Analog (ADC) | Description |
+The board has exactly 12 usable GPIO pins:
+
+| Pin Label | GPIO Number | Analog Read (ADC) | Description |
 |---|---|---|---|
-| **P0** | GPIO1 | Yes | Analog & Digital I/O |
-| **P1** | GPIO2 | Yes | Analog & Digital I/O |
-| **P2** | GPIO4 | Yes | Analog & Digital I/O |
-| **P3** | GPIO5 | Yes | Analog & Digital I/O |
-| **P4** | GPIO6 | Yes | Analog & Digital I/O |
-| **P5** | GPIO7 | Yes | Analog & Digital I/O |
-| **P6** | GPIO15 | No | Digital I/O |
-| **P7** | GPIO16 | No | Digital I/O |
-| **P8** | GPIO17 | No | Digital I/O |
-| **OLED SDA** | GPIO8 | - | I2C Data |
-| **OLED SCL** | GPIO9 | - | I2C Clock |
+| **GPIO1** | 1 | Always | Digital I/O, PWM, Servo, ADC |
+| **GPIO2** | 2 | Always | Digital I/O, PWM, Servo, ADC |
+| **GPIO4** | 4 | Always | Digital I/O, PWM, Servo, ADC |
+| **GPIO5** | 5 | Always | Digital I/O, PWM, Servo, ADC |
+| **GPIO6** | 6 | Always | Digital I/O, PWM, Servo, ADC |
+| **GPIO7** | 7 | Always | Digital I/O, PWM, Servo, ADC |
+| **GPIO10** | 10 | Always | Digital I/O, PWM, Servo, ADC |
+| **GPIO11** | 11 | Disabled when Wi-Fi active | Digital I/O, PWM, Servo, ADC (Wi-Fi shared) |
+| **GPIO12** | 12 | Disabled when Wi-Fi active | Digital I/O, PWM, Servo, ADC (Wi-Fi shared) |
+| **GPIO15** | 15 | Disabled when Wi-Fi active | Digital I/O, PWM, Servo, ADC (Wi-Fi shared) |
+| **GPIO16** | 16 | Disabled when Wi-Fi active | Digital I/O, PWM, Servo, ADC (Wi-Fi shared) |
+| **GPIO17** | 17 | Disabled when Wi-Fi active | Digital I/O, PWM, Servo, ADC (Wi-Fi shared) |
+| **OLED SDA** | 8 | - | Shared I2C Data (never in pin dropdowns) |
+| **OLED SCL** | 9 | - | Shared I2C Clock (never in pin dropdowns) |
+
+> **Legacy Project Migration:** Existing saved projects that used P0–P8 are automatically migrated when loaded:
+> P0→1, P1→2, P2→4, P3→5, P4→6, P5→7, P6→15, P7→16, P8→17.
+
+---
+
+## Install PIXL Firmware Tool (USB, Web Serial)
+
+Located in **Settings** > **Board Firmware Tool**, this password-protected wizard allows teachers and engineers to turn a blank ESP32-S3 board (or an Arduino board) into a ready-to-use PIXL board directly from the browser:
+- **Password Gate:** Verifies password via SHA-256 (`crypto.subtle.digest`) with zero plain passwords stored in source code.
+- **Bootloader Setup:** Supports both automatic reboot from existing MicroPython (`machine.bootloader()`) and manual BOOT/RST button sequence.
+- **Flashes MicroPython:** Uses Espressif's `esptool-js` to erase flash and write `micropython.bin` at offset 0.
+- **Copies PIXL Libraries:** Automatically formats and copies system files (`pixl.py`, `boot.py`, `main.py`, SSD1306, and aioble) over MicroPython raw REPL with chunked base64 writing and byte-level size verification.
 
 ---
 

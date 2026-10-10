@@ -114,6 +114,13 @@ export function getToolbox(extensions: ProjectExtension[] = []): any {
         { kind: 'block', type: 'mb_analog_read_pin' },
         {
           kind: 'block',
+          type: 'mb_analog_write_pin',
+          inputs: {
+            VALUE: { shadow: { type: 'mb_math_number', fields: { NUM: 512 } } }
+          }
+        },
+        {
+          kind: 'block',
           type: 'mb_servo_write_pin',
           inputs: {
             ANGLE: { shadow: { type: 'mb_math_number', fields: { NUM: 90 } } }

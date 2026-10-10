@@ -31,13 +31,13 @@ export const BUILTIN_EXTENSIONS: ProjectExtension[] = [
     color: '#FF7F00',
     icon: 'Sparkles',
     isBuiltIn: true,
-    extPy: `# NeoPixel Driver for MB2ESP
+    extPy: `# NeoPixel Driver for MB2ESP / ESP32-S3
 import machine, neopixel
 _np = None
 
-def neopixel_init(pin_num=0, num_leds=8):
+def neopixel_init(pin_num=1, num_leds=8):
     global _np
-    _np = neopixel.NeoPixel(machine.Pin(pin_gpio(pin_num)), num_leds)
+    _np = neopixel.NeoPixel(machine.Pin(pin_num), num_leds)
 
 def neopixel_set(index, r, g, b):
     global _np
@@ -64,10 +64,18 @@ def neopixel_clear():
             type: 'field_dropdown',
             name: 'PIN',
             options: [
-              ['P0', '0'],
-              ['P1', '1'],
-              ['P2', '2'],
-              ['P8', '8']
+              ['GPIO1', '1'],
+              ['GPIO2', '2'],
+              ['GPIO4', '4'],
+              ['GPIO5', '5'],
+              ['GPIO6', '6'],
+              ['GPIO7', '7'],
+              ['GPIO10', '10'],
+              ['GPIO11', '11'],
+              ['GPIO12', '12'],
+              ['GPIO15', '15'],
+              ['GPIO16', '16'],
+              ['GPIO17', '17']
             ]
           },
           {
@@ -81,7 +89,7 @@ def neopixel_clear():
         previousStatement: null,
         nextStatement: null,
         colour: '#FF7F00',
-        tooltip: 'Initialize NeoPixel LED strip',
+        tooltip: 'Initialize NeoPixel LED strip on GPIO pin',
         python: 'neopixel_init({PIN}, {NUM})'
       },
       {
@@ -149,7 +157,7 @@ def neopixel_clear():
     color: '#2E8B57',
     icon: 'Cog',
     isBuiltIn: true,
-    extPy: `# Servo Driver for MB2ESP
+    extPy: `# Servo Driver for MB2ESP / ESP32-S3
 import machine
 
 _servos = {}
@@ -171,10 +179,18 @@ def servo_stop(pin_num):
             type: 'field_dropdown',
             name: 'PIN',
             options: [
-              ['P0', '0'],
-              ['P1', '1'],
-              ['P2', '2'],
-              ['P8', '8']
+              ['GPIO1', '1'],
+              ['GPIO2', '2'],
+              ['GPIO4', '4'],
+              ['GPIO5', '5'],
+              ['GPIO6', '6'],
+              ['GPIO7', '7'],
+              ['GPIO10', '10'],
+              ['GPIO11', '11'],
+              ['GPIO12', '12'],
+              ['GPIO15', '15'],
+              ['GPIO16', '16'],
+              ['GPIO17', '17']
             ]
           },
           {
@@ -197,10 +213,18 @@ def servo_stop(pin_num):
             type: 'field_dropdown',
             name: 'PIN',
             options: [
-              ['P0', '0'],
-              ['P1', '1'],
-              ['P2', '2'],
-              ['P8', '8']
+              ['GPIO1', '1'],
+              ['GPIO2', '2'],
+              ['GPIO4', '4'],
+              ['GPIO5', '5'],
+              ['GPIO6', '6'],
+              ['GPIO7', '7'],
+              ['GPIO10', '10'],
+              ['GPIO11', '11'],
+              ['GPIO12', '12'],
+              ['GPIO15', '15'],
+              ['GPIO16', '16'],
+              ['GPIO17', '17']
             ]
           }
         ],

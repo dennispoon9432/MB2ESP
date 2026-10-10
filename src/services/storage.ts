@@ -1,7 +1,48 @@
 import { Project, DEFAULT_START_BLOCKLY_XML } from '../types/project';
 
+import { LEGACY_PIN_TO_GPIO_MAP } from '../board/pinMap';
+
 const STORAGE_KEY_PROJECTS = 'mb2esp_projects_v1';
 const STORAGE_KEY_ACTIVE_ID = 'mb2esp_active_project_id_v1';
+
+export function migrateProjectPins(project: Project): Project {
+  if ((project as any).pinsMigratedV2) {
+    return project;
+  }
+
+  let updatedXml = project.blocklyXml;
+  if (updatedXml) {
+    // Convert PIN dropdown values in Blockly XML: P0->1, P1->2, ... P8->17
+    updatedXml = updatedXml.replace(
+      /(<field\s+name="PIN">)(P?[0-8])(<\/field>)/gi,
+      (_match, open, pinVal, close) => {
+        const key = pinVal.toUpperCase();
+        const mapped = LEGACY_PIN_TO_GPIO_MAP[key] || LEGACY_PIN_TO_GPIO_MAP[pinVal] || pinVal;
+        return `${open}${mapped}${close}`;
+      }
+    );
+  }
+
+  let updatedPy = project.pythonCode;
+  // If user has not hand-edited Python, convert generated python pin calls too
+  if (!project.isPythonEdited && updatedPy) {
+    updatedPy = updatedPy.replace(
+      /\b(pin_write|pin_read|analog_read|analog_write|servo|servo_stop|servo_continuous|neopixel_init)\s*\(\s*(P?[0-8])(\s*[,)])/g,
+      (_match, fn, pinVal, suffix) => {
+        const key = pinVal.toUpperCase();
+        const mapped = LEGACY_PIN_TO_GPIO_MAP[key] || LEGACY_PIN_TO_GPIO_MAP[pinVal] || pinVal;
+        return `${fn}(${mapped}${suffix}`;
+      }
+    );
+  }
+
+  return {
+    ...project,
+    blocklyXml: updatedXml,
+    pythonCode: updatedPy,
+    pinsMigratedV2: true
+  } as Project;
+}
 
 export function getAllProjects(): Project[] {
   try {
@@ -17,7 +58,19 @@ export function getAllProjects(): Project[] {
       saveProjectsList([initial]);
       return [initial];
     }
-    return projects.sort((a, b) => b.updatedAt - a.updatedAt);
+
+    let neededSave = false;
+    const migrated = projects.map(p => {
+      const m = migrateProjectPins(p);
+      if (m !== p) neededSave = true;
+      return m;
+    });
+
+    if (neededSave) {
+      saveProjectsList(migrated);
+    }
+
+    return migrated.sort((a, b) => b.updatedAt - a.updatedAt);
   } catch (err) {
     console.error('Failed to load projects from storage:', err);
     const initial = createInitialProject();
@@ -170,7 +223,7 @@ export function importProjectFromJson(jsonString: string): Project {
     throw new Error('Invalid project file: missing name');
   }
 
-  const imported: Project = {
+  const rawImported: Project = {
     ...parsed,
     id: 'proj_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36),
     name: parsed.name + ' (Imported)',
@@ -178,6 +231,7 @@ export function importProjectFromJson(jsonString: string): Project {
     updatedAt: Date.now()
   };
 
+  const imported = migrateProjectPins(rawImported);
   const projects = getAllProjects();
   projects.unshift(imported);
   saveProjectsList(projects);

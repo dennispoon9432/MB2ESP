@@ -51,12 +51,12 @@ export function evalBlockValue(
     }
 
     case 'mb_digital_read_pin': {
-      const pin = parseInt(block.getFieldValue('PIN') || '0', 10);
+      const pin = parseInt(block.getFieldValue('PIN') || '1', 10);
       return sim.pinRead(pin);
     }
 
     case 'mb_analog_read_pin': {
-      const pin = parseInt(block.getFieldValue('PIN') || '0', 10);
+      const pin = parseInt(block.getFieldValue('PIN') || '1', 10);
       return sim.analogRead(pin);
     }
 
@@ -198,14 +198,21 @@ async function executeSingleBlock(
     }
 
     case 'mb_digital_write_pin': {
-      const pin = parseInt(block.getFieldValue('PIN') || '0', 10);
+      const pin = parseInt(block.getFieldValue('PIN') || '1', 10);
       const val = evalInputValue(block, 'VALUE', sim, vars, 0);
       sim.pinWrite(pin, val);
       break;
     }
 
+    case 'mb_analog_write_pin': {
+      const pin = parseInt(block.getFieldValue('PIN') || '1', 10);
+      const val = evalInputValue(block, 'VALUE', sim, vars, 512);
+      sim.analogWrite(pin, val);
+      break;
+    }
+
     case 'mb_servo_write_pin': {
-      const pin = parseInt(block.getFieldValue('PIN') || '0', 10);
+      const pin = parseInt(block.getFieldValue('PIN') || '1', 10);
       const angle = evalInputValue(block, 'ANGLE', sim, vars, 90);
       sim.servo(pin, angle);
       break;

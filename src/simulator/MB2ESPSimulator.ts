@@ -8,6 +8,8 @@
  * - Serial output
  */
 
+import { USABLE_GPIOS } from '../board/pinMap';
+
 export interface SimulatorPinState {
   digital: number; // 0 or 1
   analog: number; // 0 to 1023
@@ -53,8 +55,8 @@ export class MB2ESPSimulator {
 
   private getInitialState(): SimulatorState {
     const pins: Record<number, SimulatorPinState> = {};
-    for (let i = 0; i <= 8; i++) {
-      pins[i] = { digital: 0, analog: 0, servoAngle: null };
+    for (const gpio of USABLE_GPIOS) {
+      pins[gpio] = { digital: 0, analog: 0, servoAngle: null };
     }
     return {
       buttonA: false,
@@ -191,10 +193,20 @@ export class MB2ESPSimulator {
   // --- Pins ---
 
   public pinWrite(pin: number, val: number): void {
-    if (this.state.pins[pin]) {
-      this.state.pins[pin].digital = val ? 1 : 0;
-      this.notify();
+    if (!this.state.pins[pin]) {
+      this.state.pins[pin] = { digital: 0, analog: 0, servoAngle: null };
     }
+    this.state.pins[pin].digital = val ? 1 : 0;
+    this.notify();
+  }
+
+  public analogWrite(pin: number, val: number): void {
+    if (!this.state.pins[pin]) {
+      this.state.pins[pin] = { digital: 0, analog: 0, servoAngle: null };
+    }
+    this.state.pins[pin].analog = Math.max(0, Math.min(1023, Math.round(val)));
+    this.state.pins[pin].digital = val > 0 ? 1 : 0;
+    this.notify();
   }
 
   public pinRead(pin: number): number {
@@ -206,10 +218,11 @@ export class MB2ESPSimulator {
   }
 
   public servo(pin: number, angle: number): void {
-    if (this.state.pins[pin]) {
-      this.state.pins[pin].servoAngle = Math.max(0, Math.min(180, angle));
-      this.notify();
+    if (!this.state.pins[pin]) {
+      this.state.pins[pin] = { digital: 0, analog: 0, servoAngle: null };
     }
+    this.state.pins[pin].servoAngle = Math.max(0, Math.min(180, angle));
+    this.notify();
   }
 
   public runningTime(): number {

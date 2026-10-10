@@ -81,23 +81,29 @@ export function registerPythonGenerators(): void {
 
   // Pins category
   pythonGenerator.forBlock['mb_digital_write_pin'] = function (block) {
-    const pin = block.getFieldValue('PIN') || '0';
+    const pin = block.getFieldValue('PIN') || '1';
     const val = pythonGenerator.valueToCode(block, 'VALUE', Order.NONE) || '0';
     return `pin_write(${pin}, ${val})\n`;
   };
 
   pythonGenerator.forBlock['mb_digital_read_pin'] = function (block) {
-    const pin = block.getFieldValue('PIN') || '0';
+    const pin = block.getFieldValue('PIN') || '1';
     return [`pin_read(${pin})`, Order.FUNCTION_CALL];
   };
 
   pythonGenerator.forBlock['mb_analog_read_pin'] = function (block) {
-    const pin = block.getFieldValue('PIN') || '0';
+    const pin = block.getFieldValue('PIN') || '1';
     return [`analog_read(${pin})`, Order.FUNCTION_CALL];
   };
 
+  pythonGenerator.forBlock['mb_analog_write_pin'] = function (block) {
+    const pin = block.getFieldValue('PIN') || '1';
+    const val = pythonGenerator.valueToCode(block, 'VALUE', Order.NONE) || '512';
+    return `analog_write(${pin}, ${val})\n`;
+  };
+
   pythonGenerator.forBlock['mb_servo_write_pin'] = function (block) {
-    const pin = block.getFieldValue('PIN') || '0';
+    const pin = block.getFieldValue('PIN') || '1';
     const angle = pythonGenerator.valueToCode(block, 'ANGLE', Order.NONE) || '90';
     return `servo(${pin}, ${angle})\n`;
   };

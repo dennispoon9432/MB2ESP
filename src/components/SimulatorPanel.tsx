@@ -172,17 +172,24 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
           {/* Bottom Edge Gold Contacts / Pins */}
           <div className="w-full pt-1 border-t-2 border-slate-800/80 flex items-end justify-between px-1 z-10">
-            {['P0', 'P1', 'P2', '3V3', 'GND'].map((pinLabel, idx) => {
-              const isPin = idx < 3;
-              const isHigh = isPin && simState.pins[idx]?.digital === 1;
+            {[
+              { label: 'GPIO1', gpio: 1 },
+              { label: 'GPIO2', gpio: 2 },
+              { label: 'GPIO4', gpio: 4 },
+              { label: 'GPIO5', gpio: 5 },
+              { label: '3V3', gpio: null },
+              { label: 'GND', gpio: null }
+            ].map(pinItem => {
+              const isPin = pinItem.gpio !== null;
+              const isHigh = isPin && simState.pins[pinItem.gpio!]?.digital === 1;
               return (
-                <div key={pinLabel} className="flex flex-col items-center">
-                  <span className={`text-[8px] font-mono font-bold mb-0.5 ${
+                <div key={pinItem.label} className="flex flex-col items-center">
+                  <span className={`text-[7px] font-mono font-bold mb-0.5 ${
                     isHigh ? 'text-amber-400' : 'text-slate-400'
                   }`}>
-                    {pinLabel}
+                    {pinItem.label}
                   </span>
-                  <div className={`w-8 h-4 rounded-t-sm border border-amber-600/40 ${
+                  <div className={`w-7 h-3.5 rounded-t-sm border border-amber-600/40 ${
                     isHigh
                       ? 'bg-amber-400 shadow-[0_0_8px_#f59e0b]'
                       : 'bg-gradient-to-t from-amber-600 to-amber-500/70'
@@ -196,37 +203,45 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
         {/* Live Pin Monitor Drawer */}
         {showPins && (
           <div className="w-full mt-3 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs">
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center justify-between mb-1">
               <span className="font-bold text-slate-200 text-[11px] uppercase tracking-wide">
-                ESP32-S3 GPIO Monitor
+                ESP32-S3 GPIO Monitor (12 Pins)
               </span>
               <span className="text-[9px] text-slate-500 font-mono">
-                P0–P5: ADC
+                Click pin to toggle input
               </span>
             </div>
-            <div className="text-[10px] text-slate-400 mb-2 font-mono">
-              OLED I2C: SDA=GPIO8, SCL=GPIO9
+            <div className="text-[10px] text-slate-400 mb-2 font-mono flex items-center justify-between">
+              <span>OLED I2C: SDA=GPIO8, SCL=GPIO9</span>
+              <span className="text-[9px] text-sky-400/80">ADC: 1, 2, 4, 5, 6, 7, 10</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
               {MB2ESP_PINS.map(pinDef => {
-                const pinNum = pinDef.pinNumber;
-                const state = simState.pins[pinNum] || { digital: 0, analog: 0, servoAngle: null };
+                const gpio = pinDef.gpio;
+                const state = simState.pins[gpio] || { digital: 0, analog: 0, servoAngle: null };
                 return (
-                  <div key={pinDef.pinLabel} className="bg-slate-900 border border-slate-800 rounded p-1.5 flex flex-col">
+                  <div key={pinDef.label} className="bg-slate-900 border border-slate-800 rounded p-1.5 flex flex-col">
                     <div className="flex justify-between items-center text-[10px]">
                       <div>
-                        <span className="font-mono text-slate-200 font-bold">{pinDef.pinLabel}</span>
-                        <span className="text-[9px] text-slate-500 ml-1">({pinDef.gpioLabel})</span>
+                        <span className="font-mono text-slate-200 font-bold">{pinDef.label}</span>
                       </div>
-                      <span className={`px-1 rounded text-[9px] font-bold ${
-                        state.digital ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400'
-                      }`}>
+                      <button
+                        type="button"
+                        onClick={() => simulator.pinWrite(gpio, state.digital ? 0 : 1)}
+                        className={`px-1 rounded text-[9px] font-bold cursor-pointer transition ${
+                          state.digital ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
+                        }`}
+                        title="Click to toggle digital input state"
+                      >
                         {state.digital ? 'HIGH' : 'LOW'}
-                      </span>
+                      </button>
                     </div>
-                    {pinDef.isAnalog && (
-                      <div className="text-[9px] text-sky-400 mt-0.5 font-mono">
-                        ADC: {state.analog}
+                    {pinDef.supportsAnalog && (
+                      <div className="text-[9px] text-sky-400 mt-0.5 font-mono flex justify-between">
+                        <span>ADC: {state.analog}</span>
+                        {!pinDef.analogAlwaysWorks && (
+                          <span className="text-[8px] text-slate-500" title="Disabled when Wi-Fi active">No Wi-Fi</span>
+                        )}
                       </div>
                     )}
                     {state.servoAngle !== null && (

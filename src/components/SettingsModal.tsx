@@ -8,13 +8,15 @@ interface SettingsModalProps {
   onSaveSettings: (settings: ProjectSettings) => void;
   onClose: () => void;
   strings: AppStrings;
+  onOpenFirmwareInstaller?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
   onSaveSettings,
   onClose,
-  strings
+  strings,
+  onOpenFirmwareInstaller
 }) => {
   const [chunkSize, setChunkSize] = useState(settings.bleChunkSize || 180);
   const [lang, setLang] = useState<Language>(settings.language || 'en');
@@ -110,6 +112,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
+          {/* Advanced / Tools */}
+          {onOpenFirmwareInstaller && (
+            <div className="bg-slate-950/40 p-3.5 rounded-2xl border border-slate-800/60 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-semibold text-slate-300 block">Board Firmware Tool</span>
+                <span className="text-[11px] text-slate-500">Flash blank ESP32-S3 board with PIXL MicroPython over USB</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenFirmwareInstaller();
+                }}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-cyan-950 hover:text-cyan-400 border border-slate-700/80 text-xs font-semibold text-slate-300 transition"
+              >
+                Install firmware
+              </button>
+            </div>
+          )}
+
           {/* About MB2ESP Hardware */}
           <div className="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800/80 text-[11px] text-slate-400 space-y-1">
             <div className="flex items-center gap-1.5 font-bold text-slate-300">
@@ -117,7 +139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <span>MB2ESP Board Architecture</span>
             </div>
             <p>
-              Dual-core ESP32 with built-in 128x64 I2C OLED (SSD1306), BLE Nordic UART Service, 5x5 Virtual LED mapping, and MicroPython <code className="text-emerald-400">pixl.py</code> runtime.
+              Dual-core ESP32 with built-in 128x64 I2C OLED (SSD1306), BLE Nordic UART Service, and MicroPython <code className="text-emerald-400">pixl.py</code> runtime.
             </p>
           </div>
         </div>
