@@ -1,0 +1,20 @@
+{
+  "version": "PIXL 0.1 / MicroPython 1.29.0",
+  "chip": "ESP32-S3",
+  "firmware": { "file": "micropython.bin", "offset": 0 },
+  "files": [
+    { "src": "lib/ssd1306.mpy",          "dest": "lib/ssd1306.mpy" },
+    { "src": "lib/aioble/__init__.mpy",  "dest": "lib/aioble/__init__.mpy" },
+    { "src": "lib/aioble/core.mpy",      "dest": "lib/aioble/core.mpy" },
+    { "src": "lib/aioble/device.mpy",    "dest": "lib/aioble/device.mpy" },
+    { "src": "lib/aioble/peripheral.mpy","dest": "lib/aioble/peripheral.mpy" },
+    { "src": "lib/aioble/server.mpy",    "dest": "lib/aioble/server.mpy" },
+    { "src": "lib/aioble/central.mpy",   "dest": "lib/aioble/central.mpy" },
+    { "src": "lib/aioble/client.mpy",    "dest": "lib/aioble/client.mpy" },
+    { "src": "lib/aioble/l2cap.mpy",     "dest": "lib/aioble/l2cap.mpy" },
+    { "src": "lib/aioble/security.mpy",  "dest": "lib/aioble/security.mpy" },
+    { "src": "pixl.py",                  "dest": "pixl.py" },
+    { "src": "main.py",                  "dest": "main.py" },
+    { "src": "boot.py",                  "dest": "boot.py" }
+  ]
+}
