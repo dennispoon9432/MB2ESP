@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+/* Keep Blockly's internal layers bounded so modals and bars always render on top */
+.blocklyToolboxDiv {
+  z-index: 20 !important;
+}
+
+.blocklyFlyout {
+  z-index: 20 !important;
+}
+
+/* Modal overlays must always sit above all workspace widgets */
+.app-modal-overlay {
+  z-index: 99999 !important;
+}

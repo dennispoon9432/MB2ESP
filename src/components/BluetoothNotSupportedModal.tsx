@@ -12,7 +12,7 @@ export const BluetoothNotSupportedModal: React.FC<BluetoothNotSupportedModalProp
   strings
 }) => {
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[99999] app-modal-overlay flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">

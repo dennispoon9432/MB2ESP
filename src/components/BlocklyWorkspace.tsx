@@ -93,6 +93,11 @@ export const BlocklyWorkspace: React.FC<BlocklyWorkspaceProps> = ({
 
     // Intercept Extensions category click
     ws.registerToolboxCategoryCallback('EXTENSIONS_CATEGORY', () => {
+      try {
+        (ws.getToolbox() as any)?.clearSelection?.();
+      } catch (e) {
+        // ignore
+      }
       onOpenExtensions();
       return [];
     });

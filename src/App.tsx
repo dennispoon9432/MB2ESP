@@ -62,6 +62,13 @@ export default function App() {
   // Active Blockly Workspace ref
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
 
+  const handleOpenExtensions = () => {
+    try {
+      (workspaceRef.current?.getToolbox() as any)?.clearSelection?.();
+    } catch (e) {}
+    setShowExtensionsModal(true);
+  };
+
   // Strings / i18n
   const strings = useMemo(() => getStrings(activeProject.settings?.language || 'en'), [activeProject.settings?.language]);
 
@@ -355,7 +362,7 @@ export default function App() {
             }}
             isPythonMode={activeProject.isPythonMode}
             onToggleMode={handleToggleMode}
-            onOpenExtensions={() => setShowExtensionsModal(true)}
+            onOpenExtensions={handleOpenExtensions}
             onOpenSettings={() => setShowSettingsModal(true)}
             onOpenHelp={() => setShowPairingModal(true)}
             onExport={() => handleExportProject(activeProject)}
@@ -387,7 +394,7 @@ export default function App() {
                 <BlocklyWorkspace
                   project={activeProject}
                   onWorkspaceChange={handleWorkspaceChange}
-                  onOpenExtensions={() => setShowExtensionsModal(true)}
+                  onOpenExtensions={handleOpenExtensions}
                   strings={strings}
                   workspaceRef={workspaceRef}
                 />

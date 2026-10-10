@@ -260,7 +260,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Delete Confirmation Modal */}
       {confirmDeleteId && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[99999] app-modal-overlay flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl flex flex-col gap-4">
             <h3 className="font-bold text-base text-white">{strings.deleteProject}</h3>
             <p className="text-xs text-slate-400">{strings.confirmDelete}</p>
