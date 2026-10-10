@@ -1,0 +1,6 @@
+{
+  "name": "MB2ESP Code Studio",
+  "description": "Block-based and Python visual coding editor for the MB2ESP educational microcontroller board with interactive OLED simulator, Bluetooth flashing, and extensions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
