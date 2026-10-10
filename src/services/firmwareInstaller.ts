@@ -70,15 +70,9 @@ export async function fetchFirmwareBytes(src: string): Promise<Uint8Array> {
 }
 
 /**
- * Step 2 (Automatic): Trigger ROM bootloader over MicroPython REPL
+ * Step 2 (Automatic): Trigger ROM bootloader over MicroPython REPL using a user-selected port.
  */
-export async function triggerBootloaderAutomatic(): Promise<void> {
-  if (!('serial' in navigator)) {
-    throw new Error('NO_WEB_SERIAL');
-  }
-
-  const navSerial = (navigator as any).serial;
-  const port = await navSerial.requestPort();
+export async function triggerBootloader(port: any): Promise<void> {
   await port.open({ baudRate: 115200 });
 
   try {
@@ -90,44 +84,27 @@ export async function triggerBootloaderAutomatic(): Promise<void> {
     // Trigger ROM bootloader
     await writer.write(encoder.encode('import machine; machine.bootloader()\r\n'));
     writer.releaseLock();
-  } catch (e) {
+  } catch {
     // Port disappears into ROM bootloader mode, expected
   }
 
   try {
     await port.close();
-  } catch (e) {}
+  } catch {}
 
   // Wait 2 seconds for ROM bootloader enumeration
   await new Promise(r => setTimeout(r, 2000));
 }
 
 /**
- * Step 3: Flash MicroPython binary using esptool-js
+ * Step 3: Flash MicroPython binary using esptool-js with an already user-selected port.
  */
 export async function flashFirmwareBinary(
+  port: any,
   manifest: FirmwareManifest,
   onProgress: (percent: number) => void,
   onLog: (msg: string) => void
 ): Promise<void> {
-  if (!('serial' in navigator)) {
-    throw new Error('NO_WEB_SERIAL');
-  }
-
-  onLog('Selecting ESP32-S3 board in install mode (Vendor ID 0x303A)...');
-  const navSerial = (navigator as any).serial;
-  let port: any;
-  try {
-    port = await navSerial.requestPort({
-      filters: [{ usbVendorId: 0x303A }]
-    });
-  } catch (e: any) {
-    if (e.name === 'NotFoundError' || e.message?.includes('cancelled')) {
-      throw new Error('Selection cancelled.');
-    }
-    throw e;
-  }
-
   onLog(`Fetching MicroPython image: ${manifest.firmware.file}...`);
   const binBytes = await fetchFirmwareBytes(manifest.firmware.file);
   onLog(`Loaded ${binBytes.length} bytes.`);
@@ -204,6 +181,29 @@ export async function flashFirmwareBinary(
   } catch {}
 
   onLog('Flash step completed successfully.');
+}
+
+/**
+ * Checks navigator.serial.getPorts() for an already-paired PIXL board (vendor 0x303A, product 0x4001)
+ */
+export async function tryFindPixlPort(): Promise<any | null> {
+  if (typeof navigator === 'undefined' || !('serial' in navigator)) {
+    return null;
+  }
+  try {
+    const navSerial = (navigator as any).serial;
+    const ports = await navSerial.getPorts();
+    for (const p of ports) {
+      const info = p.getInfo?.() || {};
+      const vid = info.usbVendorId;
+      const pid = info.usbProductId;
+      // USB vendor 0x303A (12346), product 0x4001 (16385)
+      if ((vid === 0x303A || vid === 12346) && (pid === 0x4001 || pid === 16385)) {
+        return p;
+      }
+    }
+  } catch {}
+  return null;
 }
 
 /**
@@ -295,7 +295,7 @@ export class MicroPythonRawRepl {
     await this.waitForOutput(
       buf => buf.includes('raw REPL') && buf.endsWith('>'),
       4000,
-      "No answer. Unplug and replug the board, then try again."
+      'No answer. Unplug and replug the board, then try again.'
     );
     this.readBuffer = '';
   }
@@ -345,37 +345,16 @@ export class MicroPythonRawRepl {
 }
 
 /**
- * Step 4: Copy PIXL files over raw REPL
+ * Step 4: Copy PIXL files over raw REPL on a provided port (no requestPort() called inside).
  */
 export async function copyPixlFiles(
+  port: any,
   manifest: FirmwareManifest,
-  selectedPort: any | null,
   onProgress: (current: number, total: number, fileName: string) => void,
   onLog: (msg: string) => void
 ): Promise<void> {
-  let port = selectedPort;
-  const navSerial = (navigator as any).serial;
-
   if (!port) {
-    // Check if an already-allowed port with product 0x4001 exists
-    try {
-      const allowedPorts = await navSerial.getPorts();
-      for (const p of allowedPorts) {
-        const info = p.getInfo?.();
-        if (info && info.usbProductId === 0x4001) {
-          port = p;
-          onLog('Found existing allowed PIXL board port (PID 0x4001).');
-          break;
-        }
-      }
-    } catch {}
-  }
-
-  if (!port) {
-    onLog('Requesting user selection for PIXL board...');
-    port = await navSerial.requestPort({
-      filters: [{ usbVendorId: 0x303A }]
-    });
+    throw new Error('No port provided for file copy.');
   }
 
   onLog('Opening port at 115200 baud...');

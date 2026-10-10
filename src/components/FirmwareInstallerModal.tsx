@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Lock,
   AlertTriangle,
   Cpu,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
   RefreshCw,
   Sparkles,
   ArrowRight,
-  Terminal,
   Loader2,
-  ShieldCheck
+  ShieldCheck,
+  ChevronDown,
+  ChevronRight,
+  RotateCcw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -20,8 +19,9 @@ import {
   isFirmwareUnlocked,
   setFirmwareUnlocked,
   fetchManifest,
-  triggerBootloaderAutomatic,
+  triggerBootloader,
   flashFirmwareBinary,
+  tryFindPixlPort,
   copyPixlFiles,
   FirmwareManifest
 } from '../services/firmwareInstaller';
@@ -48,6 +48,10 @@ export const FirmwareInstallerModal: React.FC<FirmwareInstallerModalProps> = ({ 
 
   // Manifest
   const [manifest, setManifest] = useState<FirmwareManifest | null>(null);
+  const manifestRef = useRef<FirmwareManifest | null>(null);
+
+  // Step 4 manual selection state
+  const [needsManualPortSelection, setNeedsManualPortSelection] = useState(false);
 
   // Progress & status
   const [flashProgress, setFlashProgress] = useState(0);
@@ -68,9 +72,15 @@ export const FirmwareInstallerModal: React.FC<FirmwareInstallerModalProps> = ({ 
   // Pre-load manifest once unlocked
   useEffect(() => {
     if (isUnlocked) {
+      // Disconnect active editor serial if open
+      if (usbSerialService.isConnected()) {
+        usbSerialService.disconnect().catch(() => {});
+      }
+
       fetchManifest()
         .then(m => {
           setManifest(m);
+          manifestRef.current = m;
           addLog(`Loaded firmware manifest version: ${m.version}`);
         })
         .catch(err => {
@@ -136,22 +146,45 @@ export const FirmwareInstallerModal: React.FC<FirmwareInstallerModalProps> = ({ 
     setErrorMessage(null);
     setRawErrorDetails(null);
     setIsBusy(false);
+    setNeedsManualPortSelection(false);
     setStep('install_mode');
   };
 
-  // Step 2 Automatic bootloader trigger
+  const handleRetryStep4 = () => {
+    setErrorMessage(null);
+    setRawErrorDetails(null);
+    setIsBusy(false);
+    setStep('copying');
+    setNeedsManualPortSelection(true);
+  };
+
+  // STEP 2: Automatic bootloader trigger
+  // RULE: First await inside click handler MUST be requestPort()
   const handleTriggerAutomaticBootloader = async () => {
+    if (!('serial' in navigator)) {
+      handleError(new Error('NO_WEB_SERIAL'));
+      return;
+    }
+
+    let port: any;
+    try {
+      const navSerial = (navigator as any).serial;
+      // FIRST AWAIT in click handler
+      port = await navSerial.requestPort();
+    } catch (e: any) {
+      if (e.name === 'NotFoundError' || e.message?.includes('cancelled')) {
+        return;
+      }
+      handleError(e);
+      return;
+    }
+
     try {
       setIsBusy(true);
       setBusyMessage('Connecting to board and sending bootloader trigger...');
       setErrorMessage(null);
 
-      // Disconnect editor serial if active
-      if (usbSerialService.isConnected()) {
-        await usbSerialService.disconnect();
-      }
-
-      await triggerBootloaderAutomatic();
+      await triggerBootloader(port);
       addLog('Board transitioned into ROM bootloader mode.');
       setIsBusy(false);
       setStep('flashing');
@@ -160,54 +193,121 @@ export const FirmwareInstallerModal: React.FC<FirmwareInstallerModalProps> = ({ 
     }
   };
 
-  // Step 3 Flash binary
+  // STEP 3: Flash MicroPython binary
+  // RULE: First await inside click handler MUST be requestPort()
   const handleStartFlash = async () => {
+    if (!('serial' in navigator)) {
+      handleError(new Error('NO_WEB_SERIAL'));
+      return;
+    }
+
+    let port: any;
+    try {
+      const navSerial = (navigator as any).serial;
+      // FIRST AWAIT in click handler
+      port = await navSerial.requestPort({
+        filters: [{ usbVendorId: 0x303A }]
+      });
+    } catch (e: any) {
+      if (e.name === 'NotFoundError' || e.message?.includes('cancelled')) {
+        return;
+      }
+      handleError(e);
+      return;
+    }
+
     try {
       setIsBusy(true);
       setBusyMessage('Flashing MicroPython to ESP32-S3...');
       setErrorMessage(null);
       setFlashProgress(0);
 
-      // Disconnect editor serial if active
-      if (usbSerialService.isConnected()) {
-        await usbSerialService.disconnect();
-      }
-
-      const activeManifest = manifest || (await fetchManifest());
+      const activeManifest = manifestRef.current || manifest || (await fetchManifest());
+      manifestRef.current = activeManifest;
       setManifest(activeManifest);
 
       await flashFirmwareBinary(
+        port,
         activeManifest,
         pct => setFlashProgress(pct),
         msg => addLog(msg)
       );
 
       setFlashProgress(100);
-      setIsBusy(false);
+      addLog('Flash successful. Board hard-reset complete.');
 
-      // Transition to Step 4 after waiting 3 seconds for initial boot & format
-      setStep('copying');
-      handleStartCopyFiles(activeManifest);
+      // Proceed to Step 4 after flash
+      await proceedToStep4(activeManifest);
     } catch (err: any) {
       handleError(err);
     }
   };
 
-  // Step 4 Copy PIXL files
-  const handleStartCopyFiles = async (activeManifest?: FirmwareManifest) => {
+  // Helper to transition from Step 3 to Step 4
+  const proceedToStep4 = async (activeManifest: FirmwareManifest) => {
+    setStep('copying');
+    setNeedsManualPortSelection(false);
+    setIsBusy(true);
+    setBusyMessage('Waiting 3 seconds for board filesystem initialization...');
+    addLog('Waiting 3 seconds for MicroPython filesystem initialization...');
+
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Try finding already-paired port with product 0x4001
+    addLog('Checking for PIXL board port (PID 0x4001) via getPorts()...');
+    const autoPort = await tryFindPixlPort();
+
+    if (autoPort) {
+      addLog('Found PIXL board port automatically.');
+      await executeCopyFilesWithPort(autoPort, activeManifest);
+    } else {
+      addLog('PIXL board not found automatically in allowed ports. Prompting user selection...');
+      setIsBusy(false);
+      setNeedsManualPortSelection(true);
+    }
+  };
+
+  // STEP 4 Manual: User clicks "Select PIXL board"
+  // RULE: First await inside click handler MUST be requestPort()
+  const handleSelectPixlBoard = async () => {
+    if (!('serial' in navigator)) {
+      handleError(new Error('NO_WEB_SERIAL'));
+      return;
+    }
+
+    let port: any;
+    try {
+      const navSerial = (navigator as any).serial;
+      // FIRST AWAIT in click handler
+      port = await navSerial.requestPort({
+        filters: [{ usbVendorId: 0x303A }]
+      });
+    } catch (e: any) {
+      if (e.name === 'NotFoundError' || e.message?.includes('cancelled')) {
+        return;
+      }
+      handleError(e);
+      return;
+    }
+
+    const activeManifest = manifestRef.current || manifest || (await fetchManifest());
+    manifestRef.current = activeManifest;
+    setManifest(activeManifest);
+
+    setNeedsManualPortSelection(false);
+    await executeCopyFilesWithPort(port, activeManifest);
+  };
+
+  // Core file copying worker with given port
+  const executeCopyFilesWithPort = async (port: any, activeManifest: FirmwareManifest) => {
     try {
       setIsBusy(true);
-      setBusyMessage('Waiting 3s for board filesystem initialization...');
       setErrorMessage(null);
-
-      await new Promise(r => setTimeout(r, 3000));
-
       setBusyMessage('Copying PIXL library files via raw REPL...');
-      const man = activeManifest || manifest || (await fetchManifest());
 
       await copyPixlFiles(
-        man,
-        null,
+        port,
+        activeManifest,
         (current, total, fileName) => {
           setFileProgress({ current, total, fileName });
           setBusyMessage(`Copying files ${current}/${total}: ${fileName}`);
@@ -477,30 +577,54 @@ export const FirmwareInstallerModal: React.FC<FirmwareInstallerModalProps> = ({ 
                 </p>
               </div>
 
-              <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-200 flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-                    <span>{busyMessage || 'Writing PIXL files...'}</span>
-                  </span>
-                  {fileProgress.total > 0 && (
-                    <span className="font-mono font-bold text-cyan-400">
-                      {fileProgress.current} / {fileProgress.total}
+              {/* If automatic port detection didn't find port, ask user via a big button */}
+              {needsManualPortSelection && !isBusy && !errorMessage && (
+                <div className="p-6 bg-slate-950 border border-cyan-800/40 rounded-2xl text-center space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-950/80 border border-cyan-700/60 flex items-center justify-center text-cyan-400 mx-auto">
+                    <Cpu className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-white">Almost done!</p>
+                    <p className="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
+                      Click the button and choose the PIXL board (it may have a new name).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSelectPixlBoard}
+                    className="px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold transition shadow-lg shadow-cyan-950 active:scale-95"
+                  >
+                    Select PIXL board
+                  </button>
+                </div>
+              )}
+
+              {isBusy && (
+                <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-200 flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                      <span>{busyMessage || 'Writing PIXL files...'}</span>
                     </span>
+                    {fileProgress.total > 0 && (
+                      <span className="font-mono font-bold text-cyan-400">
+                        {fileProgress.current} / {fileProgress.total}
+                      </span>
+                    )}
+                  </div>
+
+                  {fileProgress.total > 0 && (
+                    <div className="w-full bg-slate-900 rounded-full h-3 overflow-hidden border border-slate-800">
+                      <div
+                        className="bg-cyan-500 h-full transition-all duration-200"
+                        style={{
+                          width: `${Math.round((fileProgress.current / fileProgress.total) * 100)}%`
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
-
-                {fileProgress.total > 0 && (
-                  <div className="w-full bg-slate-900 rounded-full h-3 overflow-hidden border border-slate-800">
-                    <div
-                      className="bg-cyan-500 h-full transition-all duration-200"
-                      style={{
-                        width: `${Math.round((fileProgress.current / fileProgress.total) * 100)}%`
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           )}
 
@@ -535,7 +659,7 @@ export const FirmwareInstallerModal: React.FC<FirmwareInstallerModalProps> = ({ 
             </div>
           )}
 
-          {/* Error Message Box with Try Again */}
+          {/* Error Message Box with Step-Aware Retry Buttons */}
           {errorMessage && (
             <div className="p-4 bg-red-950/40 border border-red-800/80 rounded-2xl space-y-3">
               <div className="flex items-start gap-3">
@@ -545,15 +669,36 @@ export const FirmwareInstallerModal: React.FC<FirmwareInstallerModalProps> = ({ 
                   <p className="leading-relaxed">{errorMessage}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleResetToStep2}
-                  className="px-4 py-2 rounded-xl bg-red-900/60 hover:bg-red-800/80 text-white text-xs font-bold transition flex items-center gap-1.5"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Try again</span>
-                </button>
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                {step === 'copying' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleRetryStep4}
+                      className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-cyan-950"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Try again (Step 4 only)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetToStep2}
+                      className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Start over</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResetToStep2}
+                    className="px-4 py-2 rounded-xl bg-red-900/60 hover:bg-red-800/80 text-white text-xs font-bold transition flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Try again</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
