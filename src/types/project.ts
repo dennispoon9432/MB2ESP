@@ -15,6 +15,7 @@ export interface ProjectSettings {
   bleChunkSize: number;
   language: 'en' | 'zh';
   simulatorSpeed: number;
+  boardId?: string; // 4-char hex suffix e.g. "A1B2", empty means any PIXL-XXXX
 }
 
 export interface Project {

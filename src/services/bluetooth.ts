@@ -78,22 +78,47 @@ class BluetoothService {
     this.stateListeners.forEach(fn => fn(this.getState()));
   }
 
-  public async connect(): Promise<boolean> {
+  public async connect(targetBoardId?: string): Promise<boolean> {
     if (!this.isSupported()) {
       throw new Error('WEB_BLUETOOTH_UNSUPPORTED');
     }
 
+    // Cleanly disconnect previous connection if any
     try {
-      this.updateState({ status: 'connecting', statusMessage: 'Searching for PIXL device...' });
+      if (this.device && this.device.gatt?.connected) {
+        await this.device.gatt.disconnect();
+      }
+    } catch (e) {
+      console.warn('Pre-scan disconnect warning:', e);
+    }
+    this.device = null;
+    this.rxCharacteristic = null;
+    this.txCharacteristic = null;
+
+    try {
+      const cleanId = (targetBoardId || '').trim().toUpperCase();
+      const statusMsg = cleanId
+        ? `Searching for board PIXL-${cleanId}...`
+        : 'Searching for PIXL device...';
+      this.updateState({ status: 'connecting', statusMessage: statusMsg });
 
       const navBluetooth = (navigator as any).bluetooth;
-      const device = await navBluetooth.requestDevice({
-        filters: [{ namePrefix: 'PIXL-' }],
+      
+      // Request device filter: exact name if cleanId given, else namePrefix 'PIXL-'
+      const requestOptions: any = {
         optionalServices: [NORDIC_UART_SERVICE]
-      });
+      };
+
+      if (cleanId) {
+        requestOptions.filters = [{ name: `PIXL-${cleanId}` }];
+      } else {
+        requestOptions.filters = [{ namePrefix: 'PIXL-' }];
+      }
+
+      const device = await navBluetooth.requestDevice(requestOptions);
 
       this.device = device;
-      const devName = device.name || 'PIXL-Board';
+      const devName = device.name || (cleanId ? `PIXL-${cleanId}` : 'PIXL-Board');
 
       device.addEventListener('gattserverdisconnected', () => {
         this.handleDisconnected();
@@ -208,10 +233,10 @@ class BluetoothService {
    * 3. 0x03 + length (uint32 LE) + CRC-32 (uint32 LE) = END (9 bytes)
    * 4. Wait up to 5 s for "OK". Retries up to 3 times on ERR: (falls back to 100-byte chunks on 2 fails)
    */
-  public async flashCode(code: string, preferredChunkSize = 180): Promise<void> {
+  public async flashCode(code: string, preferredChunkSize = 180, targetBoardId?: string): Promise<void> {
     // Flash always writes main.py only
     if (!this.device || !this.device.gatt?.connected || !this.rxCharacteristic) {
-      const connected = await this.connect();
+      const connected = await this.connect(targetBoardId);
       if (!connected || !this.rxCharacteristic) {
         throw new Error('Board is not connected. Please connect via Bluetooth first.');
       }
@@ -244,7 +269,7 @@ class BluetoothService {
         this.updateState({
           status: 'connected',
           progress: 100,
-          statusMessage: 'Flashed main.py successfully! Board restarted.'
+          statusMessage: 'Uploaded! Board restarted.'
         });
         return;
       } catch (err: any) {

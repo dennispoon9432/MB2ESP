@@ -165,7 +165,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   {renderThumbnail(proj)}
 
                   {/* Badges */}
-                  <div className="absolute top-3 left-3 flex gap-1">
+                  <div className="absolute top-3 left-3 flex flex-wrap gap-1">
+                    {proj.settings?.boardId && (
+                      <span className="text-[10px] bg-sky-950 text-sky-300 border border-sky-800/80 px-2 py-0.5 rounded-full font-mono font-bold shadow-sm">
+                        PIXL-{proj.settings.boardId}
+                      </span>
+                    )}
                     {proj.isPythonEdited && (
                       <span className="text-[10px] bg-amber-950 text-amber-400 border border-amber-800/80 px-2 py-0.5 rounded-full font-mono font-semibold">
                         Python

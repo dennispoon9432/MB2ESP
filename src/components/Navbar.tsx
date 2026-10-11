@@ -13,6 +13,7 @@ interface NavbarProps {
   onOpenHelp: () => void;
   onExport: () => void;
   strings: AppStrings;
+  targetBoardId?: string;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -25,7 +26,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSettings,
   onOpenHelp,
   onExport,
-  strings
+  strings,
+  targetBoardId
 }) => {
   const [name, setName] = useState(projectName);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -128,6 +130,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
         </div>
+
+        {/* Target Board ID Indicator (clickable to open Settings) */}
+        {targetBoardId ? (
+          <button
+            onClick={onOpenSettings}
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950/80 border border-sky-500/40 text-sky-300 hover:border-sky-400 hover:text-white transition text-xs font-mono font-bold shadow-sm"
+            title={`${strings.boardIdSetting}: PIXL-${targetBoardId} (Click to change)`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+            <span>PIXL-{targetBoardId}</span>
+          </button>
+        ) : (
+          <button
+            onClick={onOpenSettings}
+            className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition text-[11px]"
+            title={strings.boardIdDesc}
+          >
+            <span className="text-slate-500">{strings.boardIdBadge}</span>
+            <span className="italic">{strings.boardIdAllBoards}</span>
+          </button>
+        )}
 
         {/* Extensions */}
         <button

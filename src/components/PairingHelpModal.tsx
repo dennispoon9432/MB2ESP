@@ -86,10 +86,15 @@ export const PairingHelpModal: React.FC<PairingHelpModalProps> = ({ onClose, str
         </div>
 
         {/* Note banner */}
-        <div className="p-3 bg-sky-950/40 border border-sky-800/60 rounded-xl text-sky-200 text-xs flex items-center gap-2">
-          <HelpCircle className="w-4 h-4 text-sky-400 shrink-0" />
-          <span>
-            The board advertises as <strong className="text-white font-mono">PIXL-XXXX</strong> and uses Nordic UART Service.
+        <div className="p-3 bg-sky-950/40 border border-sky-800/60 rounded-xl text-sky-200 text-xs flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <HelpCircle className="w-4 h-4 text-sky-400 shrink-0" />
+            <span>
+              The board advertises as <strong className="text-white font-mono">PIXL-XXXX</strong> and uses Nordic UART Service.
+            </span>
+          </div>
+          <span className="text-[11px] text-sky-300/80 pl-6">
+            Tip: In a classroom with multiple boards, enter your 4-character ID in <strong>Settings → Target Board ID</strong> so the connection dialog targets only your board.
           </span>
         </div>
 

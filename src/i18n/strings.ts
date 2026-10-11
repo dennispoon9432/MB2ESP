@@ -80,6 +80,12 @@ export interface AppStrings {
   importFromGithub: string;
   builtIn: string;
   lastEdited: string;
+  boardIdSetting: string;
+  boardIdDesc: string;
+  boardIdPlaceholder: string;
+  boardIdBadge: string;
+  boardIdAllBoards: string;
+  uploadSuccess: string;
 }
 
 export const stringsEn: AppStrings = {
@@ -158,6 +164,12 @@ export const stringsEn: AppStrings = {
   importFromGithub: "Add from GitHub",
   builtIn: "Built-in",
   lastEdited: "Last edited",
+  boardIdSetting: "Target Board ID (OLED suffix)",
+  boardIdDesc: "Filter to your specific board in a classroom (e.g. 1A2B). Leave empty to match any PIXL board.",
+  boardIdPlaceholder: "e.g. A1B2 (optional)",
+  boardIdBadge: "Target:",
+  boardIdAllBoards: "Any board",
+  uploadSuccess: "Uploaded! Board restarted.",
 };
 
 export const stringsZh: AppStrings = {
@@ -236,6 +248,12 @@ export const stringsZh: AppStrings = {
   importFromGithub: "從 GitHub 添加",
   builtIn: "內建",
   lastEdited: "上次編輯",
+  boardIdSetting: "目標板子 ID（OLED 後綴）",
+  boardIdDesc: "在有多塊板子的教室中鎖定你的板子（例如 1A2B）。留空則可連接任何 PIXL 板子。",
+  boardIdPlaceholder: "例如 A1B2（可選）",
+  boardIdBadge: "目標板：",
+  boardIdAllBoards: "任意板子",
+  uploadSuccess: "已完成下載！板子已重啟。",
 };
 
 export type Language = 'en' | 'zh';

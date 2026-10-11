@@ -122,7 +122,8 @@ export function createNewProject(name?: string): Project {
     settings: {
       bleChunkSize: 180,
       language: 'en',
-      simulatorSpeed: 1
+      simulatorSpeed: 1,
+      boardId: ''
     }
   };
 
@@ -158,7 +159,8 @@ run()`,
     settings: {
       bleChunkSize: 180,
       language: 'en',
-      simulatorSpeed: 1
+      simulatorSpeed: 1,
+      boardId: ''
     }
   };
 }

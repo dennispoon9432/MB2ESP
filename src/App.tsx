@@ -298,7 +298,7 @@ export default function App() {
     }
 
     try {
-      await bluetoothService.connect();
+      await bluetoothService.connect(activeProject.settings?.boardId);
     } catch (err: any) {
       if (err.message === 'WEB_BLUETOOTH_UNSUPPORTED') {
         setShowBtUnsupportedModal(true);
@@ -370,7 +370,11 @@ export default function App() {
           ...prev,
           `\n[MB2ESP BLE] Starting flash to main.py (${fullPythonCode.length} bytes)...`
         ]);
-        await bluetoothService.flashCode(fullPythonCode, activeProject.settings?.bleChunkSize || 180);
+        await bluetoothService.flashCode(
+          fullPythonCode,
+          activeProject.settings?.bleChunkSize || 180,
+          activeProject.settings?.boardId
+        );
         confetti({
           particleCount: 80,
           spread: 60,
@@ -439,6 +443,7 @@ export default function App() {
             onOpenHelp={() => setShowPairingModal(true)}
             onExport={() => handleExportProject(activeProject)}
             strings={strings}
+            targetBoardId={activeProject.settings?.boardId}
           />
 
           {/* Main Work Area: Left Simulator + Right Workspace/Python Editor */}
@@ -500,6 +505,7 @@ export default function App() {
             onToggleSerial={() => setIsSerialOpen(!isSerialOpen)}
             isSerialOpen={isSerialOpen}
             strings={strings}
+            targetBoardId={activeProject.settings?.boardId}
           />
         </div>
       )}

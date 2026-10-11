@@ -17,6 +17,7 @@ interface BottomBarProps {
   onToggleSerial: () => void;
   isSerialOpen: boolean;
   strings: AppStrings;
+  targetBoardId?: string;
 }
 
 export const BottomBar: React.FC<BottomBarProps> = ({
@@ -31,7 +32,8 @@ export const BottomBar: React.FC<BottomBarProps> = ({
   onOpenPairingHelp,
   onToggleSerial,
   isSerialOpen,
-  strings
+  strings,
+  targetBoardId
 }) => {
   const isBleConnected = bluetoothState.status === 'connected';
   const isUsbConnected = usbState.status === 'connected';
@@ -101,10 +103,17 @@ export const BottomBar: React.FC<BottomBarProps> = ({
             onClick={onConnect}
             disabled={isBleConnecting}
             className="px-4 py-3 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-2 transition shadow-lg shadow-indigo-950/40 active:scale-95 touch-manipulation disabled:opacity-50"
-            title="Connect over Web Bluetooth BLE"
+            title={targetBoardId ? `Connect to PIXL-${targetBoardId}` : "Connect over Web Bluetooth BLE"}
           >
             <Bluetooth className={`w-5 h-5 ${isBleConnecting ? 'animate-pulse' : ''}`} />
-            <span>{isBleConnecting ? strings.connecting : strings.connect}</span>
+            <div className="flex flex-col items-start leading-none">
+              <span>{isBleConnecting ? strings.connecting : strings.connect}</span>
+              {targetBoardId && (
+                <span className="text-[10px] font-mono text-indigo-200 font-normal mt-0.5">
+                  PIXL-{targetBoardId}
+                </span>
+              )}
+            </div>
           </button>
         )}
 
