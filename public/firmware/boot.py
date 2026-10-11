@@ -25,7 +25,7 @@ UPLOAD_PIN = const(0)       # Button A. Prototype: 0 (BOOT). Final PCB: 14
 OLED_SDA = const(8)
 OLED_SCL = const(9)
 WINDOW_MS = const(1500)
-VERSION = "0.1"
+VERSION = "0.2"
 
 
 def _oled():
@@ -44,6 +44,32 @@ def _show(o, *lines):
         for i, s in enumerate(lines):
             o.text(s, 0, i * 11)
         o.show()
+
+
+def _board_id():
+    # Last 3 bytes of the factory MAC, e.g. "A96E08": what kids type in the web app.
+    import binascii
+    return binascii.hexlify(machine.unique_id()).decode().upper()[-6:]
+
+
+def _show_id(o, top, bid, *bottom):
+    # Title line, the board ID in double-size text, then up to two status lines.
+    if not o:
+        return
+    import framebuf
+    w = len(bid) * 8
+    src = framebuf.FrameBuffer(bytearray(w), w, 8, framebuf.MONO_VLSB)
+    src.text(bid, 0, 0, 1)
+    o.fill(0)
+    o.text(top, 0, 0)
+    x0 = (128 - w * 2) // 2
+    for y in range(8):
+        for x in range(w):
+            if src.pixel(x, y):
+                o.fill_rect(x0 + x * 2, 16 + y * 2, 2, 2, 1)
+    for i, s in enumerate(bottom):
+        o.text(s, 0, 42 + i * 11)
+    o.show()
 
 
 def _rtc_flag(value=None):
@@ -66,7 +92,7 @@ def _wants_upload(o):
         return False                           # USB upload / Ctrl-D: start fast
     if _rtc_flag(b"") == b"JUSTFLASHED":
         return False                           # run the new program straight away
-    _show(o, "PIXL v" + VERSION, "", "Press A for", "BLE upload...")
+    _show(o, "PIXL v" + VERSION, "ID " + _board_id(), "", "Press A for", "BLE upload...")
     t0 = time.ticks_ms()
     while time.ticks_diff(time.ticks_ms(), t0) < WINDOW_MS:
         if btn.value() == 0:
@@ -90,10 +116,11 @@ except ImportError:
 
 
 def _upload_mode(o):
-    import asyncio, bluetooth, aioble, os, binascii
+    import asyncio, bluetooth, aioble, os
 
-    name = "PIXL-" + binascii.hexlify(machine.unique_id()).decode().upper()[-4:]
-    svc = aioble.Service(bluetooth.UUID("6e400001-b5a3-f393-e0a9-e50e24dcca9e"))
+    name = _board_id()                     # BLE name = board ID, e.g. "A96E08"
+    svc_uuid = bluetooth.UUID("6e400001-b5a3-f393-e0a9-e50e24dcca9e")
+    svc = aioble.Service(svc_uuid)
     rx = aioble.Characteristic(svc, bluetooth.UUID("6e400002-b5a3-f393-e0a9-e50e24dcca9e"),
                                write=True, write_no_response=True, capture=True)
     tx = aioble.Characteristic(svc, bluetooth.UUID("6e400003-b5a3-f393-e0a9-e50e24dcca9e"),
@@ -101,7 +128,7 @@ def _upload_mode(o):
     aioble.register_services(svc)
     aioble.core.ble.gatts_set_buffer(rx._value_handle, 256)
     try:
-        aioble.config(mtu=247)
+        aioble.config(mtu=247, gap_name=name)
     except Exception:
         pass
 
@@ -114,9 +141,9 @@ def _upload_mode(o):
 
     async def serve():
         while True:
-            _show(o, "BLE UPLOAD MODE", "", name, "", "Waiting...", "RST = exit")
-            conn = await aioble.advertise(100_000, name=name)
-            _show(o, "BLE UPLOAD MODE", "", name, "", "Connected")
+            _show_id(o, "BLE UPLOAD MODE", name, "Waiting...", "RST = exit")
+            conn = await aioble.advertise(100_000, name=name, services=[svc_uuid])
+            _show_id(o, "BLE UPLOAD MODE", name, "Connected")
             f = None
             size = 0
             crc = 0
@@ -134,7 +161,7 @@ def _upload_mode(o):
                     f = open("main.tmp", "wb")
                     size = 0
                     crc = 0
-                    _show(o, "BLE UPLOAD MODE", "", name, "", "Receiving...")
+                    _show_id(o, "BLE UPLOAD MODE", name, "Receiving...")
                 elif cmd == 0x02 and f:                      # DATA
                     chunk = data[1:]
                     f.write(chunk)

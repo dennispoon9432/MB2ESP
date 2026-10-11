@@ -1,5 +1,5 @@
 {
-  "version": "PIXL 0.1 / MicroPython 1.29.0",
+  "version": "PIXL 0.2 / MicroPython 1.29.0",
   "chip": "ESP32-S3",
   "firmware": { "file": "micropython.bin", "offset": 0 },
   "files": [
