@@ -57,7 +57,7 @@ export const PairingHelpModal: React.FC<PairingHelpModalProps> = ({ onClose, str
               3
             </div>
             <div className="text-xs text-slate-300 leading-relaxed">
-              <span className="font-semibold text-white block mb-0.5">Read Board Name on OLED</span>
+              <span className="font-semibold text-white block mb-0.5">Read Board ID on Screen</span>
               {strings.pairingStep3}
             </div>
           </div>
@@ -67,7 +67,7 @@ export const PairingHelpModal: React.FC<PairingHelpModalProps> = ({ onClose, str
               4
             </div>
             <div className="text-xs text-slate-300 leading-relaxed">
-              <span className="font-semibold text-white block mb-0.5">Select Device in Browser</span>
+              <span className="font-semibold text-white block mb-0.5">Upload via Bluetooth</span>
               {strings.pairingStep4}
             </div>
           </div>
@@ -90,11 +90,11 @@ export const PairingHelpModal: React.FC<PairingHelpModalProps> = ({ onClose, str
           <div className="flex items-center gap-2">
             <HelpCircle className="w-4 h-4 text-sky-400 shrink-0" />
             <span>
-              The board advertises as <strong className="text-white font-mono">PIXL-XXXX</strong> and uses Nordic UART Service.
+              The board advertises with its 6-character hex ID (e.g. <strong className="text-white font-mono">A96E08</strong>) and uses Nordic UART Service.
             </span>
           </div>
           <span className="text-[11px] text-sky-300/80 pl-6">
-            Tip: In a classroom with multiple boards, enter your 4-character ID in <strong>Settings → Target Board ID</strong> so the connection dialog targets only your board.
+            In a classroom with up to 30 boards, enter your board's 6 characters into the <strong>Board ID</strong> field so Chrome matches only your board.
           </span>
         </div>
 

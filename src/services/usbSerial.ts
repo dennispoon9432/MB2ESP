@@ -80,17 +80,12 @@ class USBSerialService {
     return this.port !== null && this.state.status === 'connected';
   }
 
-  public async connect(): Promise<boolean> {
-    if (!this.isSupported()) {
-      throw new Error('WEB_SERIAL_UNSUPPORTED');
-    }
-
+  /**
+   * Open an existing USB port (obtained from navigator.serial.requestPort)
+   */
+  public async openPort(port: any): Promise<boolean> {
     try {
-      this.updateState({ status: 'connecting', statusMessage: 'Selecting USB Serial port...' });
-      const navSerial = (navigator as any).serial;
-      const port = await navSerial.requestPort();
-
-      // Open at 115200 baud
+      this.updateState({ status: 'connecting', statusMessage: 'Opening USB Serial port...' });
       await port.open({ baudRate: 115200 });
 
       // Avoid resetting the ESP32-S3 board
@@ -107,14 +102,34 @@ class USBSerialService {
       this.updateState({
         status: 'connected',
         deviceName: 'USB Serial (115200)',
-        statusMessage: 'Connected via USB'
+        statusMessage: 'USB: connected'
       });
 
       return true;
     } catch (err: any) {
+      console.error('USB Serial open failed:', err);
+      this.updateState({ status: 'error', statusMessage: err.message || 'USB Open failed' });
+      throw err;
+    }
+  }
+
+  public async connect(): Promise<boolean> {
+    if (!this.isSupported()) {
+      throw new Error('WEB_SERIAL_UNSUPPORTED');
+    }
+
+    try {
+      this.updateState({ status: 'connecting', statusMessage: 'Selecting USB Serial port...' });
+      const navSerial = (navigator as any).serial;
+      const port = await navSerial.requestPort({
+        filters: [{ usbVendorId: 0x303A }]
+      });
+
+      return await this.openPort(port);
+    } catch (err: any) {
       console.error('USB Serial connection failed:', err);
       if (err.name === 'NotFoundError' || err.message?.includes('cancelled')) {
-        this.updateState({ status: 'disconnected', statusMessage: 'USB connection cancelled' });
+        this.updateState({ status: 'disconnected', statusMessage: 'Not connected' });
         return false;
       }
       this.updateState({ status: 'error', statusMessage: err.message || 'USB Connection failed' });

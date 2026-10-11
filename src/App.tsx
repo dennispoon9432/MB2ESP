@@ -25,6 +25,7 @@ import { usbSerialService, USBSerialState } from './services/usbSerial';
 import { MB2ESPSimulator } from './simulator/MB2ESPSimulator';
 import { executeWorkspace } from './simulator/simulatorInterpreter';
 import { getStrings } from './i18n/strings';
+import { loadSavedBoardId, persistBoardId, cleanBoardId, isValidBoardId } from './utils/boardId';
 
 // Components
 import { Navbar } from './components/Navbar';
@@ -48,6 +49,10 @@ export default function App() {
     const found = activeId ? getProjectById(activeId) : null;
     return found || projects[0] || createNewProject();
   });
+
+  // Classroom Board ID & status notice
+  const [boardId, setBoardId] = useState<string>(() => loadSavedBoardId());
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
   // Simulator, Bluetooth & USB State
   const simulator = useMemo(() => new MB2ESPSimulator(), []);
@@ -290,126 +295,189 @@ export default function App() {
     setActiveProject(updated);
   };
 
-  // Connect Web Bluetooth
-  const handleConnect = async () => {
+  // Handle Board ID input
+  const handleBoardIdChange = (newId: string) => {
+    setBoardId(newId);
+    setStatusNotice(null);
+    if (isValidBoardId(newId)) {
+      persistBoardId(newId);
+    }
+  };
+
+  // Helper to compile Python code including any installed extensions
+  const getFullPythonCode = (): string => {
+    const extPys = activeProject.extensions.map(e => `# Extension: ${e.name}\n${e.extPy}`).join('\n\n');
+    return extPys ? `${extPys}\n\n${activeProject.pythonCode}` : activeProject.pythonCode;
+  };
+
+  // Upload routine over Bluetooth
+  const doBleUpload = async (codeToUpload: string) => {
+    setSerialLogs(prev => [
+      ...prev,
+      `\n[MB2ESP BLE] Starting upload to main.py (${codeToUpload.length} bytes)...`
+    ]);
+    await bluetoothService.flashCode(
+      codeToUpload,
+      activeProject.settings?.bleChunkSize || 180
+    );
+    confetti({
+      particleCount: 80,
+      spread: 60,
+      origin: { y: 0.85 }
+    });
+    setSerialLogs(prev => [
+      ...prev,
+      `[MB2ESP BLE] Uploaded! The board restarted with your program.\n`
+    ]);
+  };
+
+  // Upload routine over USB
+  const doUsbUpload = async (codeToUpload: string) => {
+    setSerialLogs(prev => [
+      ...prev,
+      `\n[MB2ESP USB] Starting upload to main.py (${codeToUpload.length} bytes)...`
+    ]);
+    await usbSerialService.flashCode(codeToUpload);
+    confetti({
+      particleCount: 80,
+      spread: 60,
+      origin: { y: 0.85 }
+    });
+    setSerialLogs(prev => [
+      ...prev,
+      `[MB2ESP USB] Uploaded! The board restarted with your program.\n`
+    ]);
+  };
+
+  /**
+   * Upload via Bluetooth
+   * 1. If already connected over Bluetooth to a device whose name equals the Board ID, upload straight away.
+   * 2. Otherwise, if connected to a different board, disconnect it first.
+   * 3. Call navigator.bluetooth.requestDevice({ filters: [{ name: boardId }], optionalServices: [...] })
+   *    as the very first await in this click handler.
+   * 4. Connect, get service & chars, start notifications, then upload immediately (same click).
+   * 5. Board restarts after upload, connection drops (expected).
+   * 6. If cancelled or NotFoundError, show friendly message.
+   */
+  const handleUploadBluetooth = async () => {
+    const cleanId = cleanBoardId(boardId);
+    if (!isValidBoardId(cleanId)) {
+      setStatusNotice('Please enter a valid 6-character hex Board ID.');
+      return;
+    }
+    setStatusNotice(null);
+
+    const fullPythonCode = getFullPythonCode();
+
+    // 1. If already connected over Bluetooth to this exact board, upload straight away
+    if (bluetoothService.isConnected() && bluetoothService.getConnectedDeviceName() === cleanId) {
+      try {
+        await doBleUpload(fullPythonCode);
+      } catch (err: any) {
+        setStatusNotice(err.message || 'Bluetooth upload failed');
+      }
+      return;
+    }
+
+    // 2. Otherwise, if connected to a different board, disconnect first
+    if (bluetoothService.isConnected()) {
+      bluetoothService.disconnectSync();
+    }
+
+    // 3. Request device - FIRST AWAIT in click handler
     if (!bluetoothService.isSupported()) {
       setShowBtUnsupportedModal(true);
       return;
     }
 
+    let device: any;
     try {
-      await bluetoothService.connect(activeProject.settings?.boardId);
+      const navBt = (navigator as any).bluetooth;
+      device = await navBt.requestDevice({
+        filters: [{ name: cleanId }],
+        optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+      });
     } catch (err: any) {
-      if (err.message === 'WEB_BLUETOOTH_UNSUPPORTED') {
-        setShowBtUnsupportedModal(true);
+      if (err.name === 'NotFoundError' || err.message?.includes('cancelled') || err.message?.includes('User cancelled')) {
+        const notFoundMsg = `Board ${cleanId} not found. Put it in Bluetooth mode: press RST, then press A while the screen says 'Press A'. The screen must show ${cleanId}.`;
+        setStatusNotice(notFoundMsg);
+        return;
       }
+      setStatusNotice(err.message || 'Bluetooth connection cancelled');
+      return;
+    }
+
+    // 4. Connect and upload immediately (same click)
+    try {
+      await bluetoothService.connectDevice(device);
+      await doBleUpload(fullPythonCode);
+    } catch (err: any) {
+      console.error('BLE connection or upload failed:', err);
+      setStatusNotice(err.message || 'Failed to upload via Bluetooth');
     }
   };
 
-  // Disconnect Web Bluetooth
-  const handleDisconnect = async () => {
+  /**
+   * Upload via USB
+   * 1. If the USB port is already open, upload straight away.
+   * 2. Otherwise call navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303A }] }) as the first await,
+   *    open it, then upload immediately (same click).
+   * 3. If port is lost (board unplugged), forget it so the next click asks again.
+   */
+  const handleUploadUsb = async () => {
+    setStatusNotice(null);
+    const fullPythonCode = getFullPythonCode();
+
+    // 1. If already open, upload straight away
+    if (usbSerialService.isConnected()) {
+      try {
+        await doUsbUpload(fullPythonCode);
+      } catch (err: any) {
+        setStatusNotice(err.message || 'USB upload failed');
+      }
+      return;
+    }
+
+    // 2. Request port - FIRST AWAIT in click handler
+    if (!usbSerialService.isSupported()) {
+      setStatusNotice('Web Serial is not supported in this browser. Please use Chrome or Edge on desktop.');
+      return;
+    }
+
+    let port: any;
+    try {
+      const navSerial = (navigator as any).serial;
+      port = await navSerial.requestPort({
+        filters: [{ usbVendorId: 0x303A }]
+      });
+    } catch (err: any) {
+      if (err.name === 'NotFoundError' || err.message?.includes('cancelled')) {
+        return;
+      }
+      setStatusNotice(err.message || 'USB selection cancelled');
+      return;
+    }
+
+    // Open port and upload immediately (same click)
+    try {
+      await usbSerialService.openPort(port);
+      await doUsbUpload(fullPythonCode);
+    } catch (err: any) {
+      console.error('USB open or upload failed:', err);
+      setStatusNotice(err.message || 'Failed to upload via USB');
+    }
+  };
+
+  // Disconnect Bluetooth
+  const handleDisconnectBluetooth = async () => {
+    setStatusNotice(null);
     await bluetoothService.disconnect();
   };
 
-  // Connect USB Web Serial
-  const handleConnectUsb = async () => {
-    try {
-      await usbSerialService.connect();
-    } catch (err: any) {
-      console.warn('USB Serial connect error:', err);
-    }
-  };
-
-  // Disconnect USB Web Serial
+  // Disconnect USB
   const handleDisconnectUsb = async () => {
-    try {
-      await usbSerialService.disconnect();
-    } catch (err: any) {
-      console.warn('USB Serial disconnect error:', err);
-    }
-  };
-
-  // Flash code to MB2ESP board (USB or Bluetooth)
-  const handleFlash = async () => {
-    // Prepend all installed extensions' Python driver code into main.py
-    // Never upload boot.py or pixl.py; flash always writes main.py only
-    const extPys = activeProject.extensions.map(e => `# Extension: ${e.name}\n${e.extPy}`).join('\n\n');
-    const fullPythonCode = extPys ? `${extPys}\n\n${activeProject.pythonCode}` : activeProject.pythonCode;
-
-    // 1. If USB Serial is connected, flash via USB raw REPL
-    if (usbSerialService.isConnected()) {
-      try {
-        setSerialLogs(prev => [
-          ...prev,
-          `\n[MB2ESP USB] Starting flash to main.py (${fullPythonCode.length} bytes)...`
-        ]);
-        await usbSerialService.flashCode(fullPythonCode);
-        confetti({
-          particleCount: 80,
-          spread: 60,
-          origin: { y: 0.85 }
-        });
-        setSerialLogs(prev => [
-          ...prev,
-          `[MB2ESP USB] Code flashed successfully! Soft reset completed.\n`
-        ]);
-        return;
-      } catch (err: any) {
-        setSerialLogs(prev => [
-          ...prev,
-          `[MB2ESP USB ERROR] ${err.message || 'USB upload failed'}\n`
-        ]);
-        return;
-      }
-    }
-
-    // 2. If Bluetooth BLE is connected, flash via BLE
-    if (bluetoothState.status === 'connected') {
-      try {
-        setSerialLogs(prev => [
-          ...prev,
-          `\n[MB2ESP BLE] Starting flash to main.py (${fullPythonCode.length} bytes)...`
-        ]);
-        await bluetoothService.flashCode(
-          fullPythonCode,
-          activeProject.settings?.bleChunkSize || 180,
-          activeProject.settings?.boardId
-        );
-        confetti({
-          particleCount: 80,
-          spread: 60,
-          origin: { y: 0.85 }
-        });
-        setSerialLogs(prev => [
-          ...prev,
-          `[MB2ESP BLE] Successfully flashed code to main.py! Board restarted.\n`
-        ]);
-        return;
-      } catch (err: any) {
-        setSerialLogs(prev => [
-          ...prev,
-          `[MB2ESP BLE ERROR] ${err.message || 'BLE upload failed'}\n`
-        ]);
-        return;
-      }
-    }
-
-    // 3. If neither is connected, prompt user based on browser capabilities
-    if (usbSerialService.isSupported()) {
-      // Connect USB first if supported
-      try {
-        const connected = await usbSerialService.connect();
-        if (connected) {
-          await handleFlash();
-        }
-      } catch (e) {
-        // User may choose BLE instead
-      }
-    } else if (bluetoothService.isSupported()) {
-      await handleConnect();
-    } else {
-      setShowBtUnsupportedModal(true);
-    }
+    setStatusNotice(null);
+    await usbSerialService.disconnect();
   };
 
   return (
@@ -443,7 +511,7 @@ export default function App() {
             onOpenHelp={() => setShowPairingModal(true)}
             onExport={() => handleExportProject(activeProject)}
             strings={strings}
-            targetBoardId={activeProject.settings?.boardId}
+            targetBoardId={boardId}
           />
 
           {/* Main Work Area: Left Simulator + Right Workspace/Python Editor */}
@@ -491,21 +559,22 @@ export default function App() {
             </div>
           </div>
 
-          {/* Bottom Bar: Big Connect, Connect USB, Big Flash, and Pairing button */}
+          {/* Bottom Bar: Board ID, Upload via Bluetooth, Upload via USB, Status */}
           <BottomBar
             bluetoothState={bluetoothState}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
             usbState={usbState}
-            onConnectUsb={handleConnectUsb}
+            boardId={boardId}
+            onBoardIdChange={handleBoardIdChange}
+            onUploadBluetooth={handleUploadBluetooth}
+            onDisconnectBluetooth={handleDisconnectBluetooth}
+            onUploadUsb={handleUploadUsb}
             onDisconnectUsb={handleDisconnectUsb}
             isUsbSupported={usbSerialService.isSupported()}
-            onFlash={handleFlash}
             onOpenPairingHelp={() => setShowPairingModal(true)}
             onToggleSerial={() => setIsSerialOpen(!isSerialOpen)}
             isSerialOpen={isSerialOpen}
             strings={strings}
-            targetBoardId={activeProject.settings?.boardId}
+            statusNotice={statusNotice}
           />
         </div>
       )}

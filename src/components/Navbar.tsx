@@ -131,26 +131,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
-        {/* Target Board ID Indicator (clickable to open Settings) */}
+        {/* Target Board ID Indicator */}
         {targetBoardId ? (
-          <button
-            onClick={onOpenSettings}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950/80 border border-sky-500/40 text-sky-300 hover:border-sky-400 hover:text-white transition text-xs font-mono font-bold shadow-sm"
-            title={`${strings.boardIdSetting}: PIXL-${targetBoardId} (Click to change)`}
+          <div
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold shadow-sm"
+            title={`${strings.boardIdLabel}: ${targetBoardId}`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
-            <span>PIXL-{targetBoardId}</span>
-          </button>
-        ) : (
-          <button
-            onClick={onOpenSettings}
-            className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition text-[11px]"
-            title={strings.boardIdDesc}
-          >
-            <span className="text-slate-500">{strings.boardIdBadge}</span>
-            <span className="italic">{strings.boardIdAllBoards}</span>
-          </button>
-        )}
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+            <span>ID: {targetBoardId}</span>
+          </div>
+        ) : null}
 
         {/* Extensions */}
         <button

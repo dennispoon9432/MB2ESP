@@ -86,6 +86,12 @@ export interface AppStrings {
   boardIdBadge: string;
   boardIdAllBoards: string;
   uploadSuccess: string;
+  uploadBluetooth: string;
+  uploadUsb: string;
+  boardIdLabel: string;
+  boardIdTooltip: string;
+  boardIdHint: string;
+  notConnected: string;
 }
 
 export const stringsEn: AppStrings = {
@@ -115,10 +121,10 @@ export const stringsEn: AppStrings = {
   pairingHelpTitle: "How to connect your MB2ESP board",
   pairingStep1: "Turn on your MB2ESP board using USB or battery.",
   pairingStep2: "Press and release RESET, then press Button A while the screen says 'Press A for BLE upload'.",
-  pairingStep3: "The OLED screen will display 'PIXL-XXXX' with your board's unique name.",
-  pairingStep4: "Click 'Connect' below and select your 'PIXL-XXXX' board from the Bluetooth list.",
+  pairingStep3: "The OLED screen will display your 6-character board ID (e.g. A96E08).",
+  pairingStep4: "Type this ID in the Board ID box and click 'Upload via Bluetooth'.",
   pairingPrototypeNote: "On the ESP32-S3 DevKit prototype, Button A is the BOOT button. Don't hold it while pressing RESET.",
-  pairingUsbHelp: "USB: plug in the board, click Connect USB and choose the port. No buttons needed.",
+  pairingUsbHelp: "USB: plug in the board, click Upload via USB and choose the port. No buttons needed.",
   connectUsb: "Connect USB",
   disconnectUsb: "Disconnect USB",
   connectedToUsb: "Connected via USB",
@@ -165,11 +171,17 @@ export const stringsEn: AppStrings = {
   builtIn: "Built-in",
   lastEdited: "Last edited",
   boardIdSetting: "Target Board ID (OLED suffix)",
-  boardIdDesc: "Filter to your specific board in a classroom (e.g. 1A2B). Leave empty to match any PIXL board.",
-  boardIdPlaceholder: "e.g. A1B2 (optional)",
-  boardIdBadge: "Target:",
+  boardIdDesc: "Filter to your specific board in a classroom (e.g. A96E08).",
+  boardIdPlaceholder: "e.g. A96E08",
+  boardIdBadge: "Board ID:",
   boardIdAllBoards: "Any board",
-  uploadSuccess: "Uploaded! Board restarted.",
+  uploadSuccess: "Uploaded! The board restarted with your program.",
+  uploadBluetooth: "Upload via Bluetooth",
+  uploadUsb: "Upload via USB",
+  boardIdLabel: "Board ID",
+  boardIdTooltip: "The 6 letters/numbers on your board's screen in Bluetooth mode",
+  boardIdHint: "6 characters, 0-9 and A-F",
+  notConnected: "Not connected",
 };
 
 export const stringsZh: AppStrings = {
@@ -199,10 +211,10 @@ export const stringsZh: AppStrings = {
   pairingHelpTitle: "如何配對 MB2ESP 板",
   pairingStep1: "使用 USB 線或電池開啟 MB2ESP 電源。",
   pairingStep2: "按下並鬆開 RESET 復位鍵，當屏幕顯示「Press A for BLE upload」時按下 A 按鍵。",
-  pairingStep3: "OLED 屏幕上將顯示「PIXL-XXXX」設備名稱。",
-  pairingStep4: "點擊下方「連接」，在藍牙列表中選擇對應的 PIXL-XXXX 板子。",
+  pairingStep3: "OLED 屏幕上將顯示 6 個字元的板子 ID（例如 A96E08）。",
+  pairingStep4: "在板子 ID 欄位輸入此 ID，並點擊「透過藍牙上傳」。",
   pairingPrototypeNote: "在 ESP32-S3 開發板原型機上，A 按鍵為 BOOT 按鈕。按下 RESET 時請勿按住它。",
-  pairingUsbHelp: "USB 燒錄：插入板子，點擊「連接 USB」並選擇串口，無需按下任何按鈕。",
+  pairingUsbHelp: "USB 燒錄：插入板子，點擊「透過 USB 上傳」並選擇串口，無需按下任何按鈕。",
   connectUsb: "連接 USB",
   disconnectUsb: "斷開 USB",
   connectedToUsb: "已通過 USB 連接",
@@ -249,11 +261,17 @@ export const stringsZh: AppStrings = {
   builtIn: "內建",
   lastEdited: "上次編輯",
   boardIdSetting: "目標板子 ID（OLED 後綴）",
-  boardIdDesc: "在有多塊板子的教室中鎖定你的板子（例如 1A2B）。留空則可連接任何 PIXL 板子。",
-  boardIdPlaceholder: "例如 A1B2（可選）",
-  boardIdBadge: "目標板：",
+  boardIdDesc: "在有多塊板子的教室中鎖定你的板子（例如 A96E08）。",
+  boardIdPlaceholder: "例如 A96E08",
+  boardIdBadge: "板子 ID：",
   boardIdAllBoards: "任意板子",
-  uploadSuccess: "已完成下載！板子已重啟。",
+  uploadSuccess: "已完成下載！板子已重啟並運行您的程式。",
+  uploadBluetooth: "透過藍牙上傳",
+  uploadUsb: "透過 USB 上傳",
+  boardIdLabel: "板子 ID",
+  boardIdTooltip: "板子處於藍牙模式時螢幕顯示的 6 個英數字",
+  boardIdHint: "6 個字元，0-9 與 A-F",
+  notConnected: "未連接",
 };
 
 export type Language = 'en' | 'zh';

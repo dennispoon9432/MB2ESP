@@ -54,6 +54,8 @@ class BluetoothService {
     isWaiting: boolean;
   } | null = null;
 
+  private justUploadedSuccessfully = false;
+
   public isSupported(): boolean {
     return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
   }
@@ -78,73 +80,92 @@ class BluetoothService {
     this.stateListeners.forEach(fn => fn(this.getState()));
   }
 
+  public isConnected(): boolean {
+    return !!(this.device && this.device.gatt?.connected && this.rxCharacteristic);
+  }
+
+  public getConnectedDeviceName(): string | null {
+    return this.device?.name || this.state.deviceName || null;
+  }
+
+  /**
+   * Connect using an already requested BluetoothDevice (from user gesture).
+   * Gets service, rx/tx characteristics, and starts notifications.
+   */
+  public async connectDevice(device: any): Promise<boolean> {
+    if (!device) return false;
+    this.justUploadedSuccessfully = false;
+    this.device = device;
+    const devName = device.name || 'PIXL Board';
+
+    device.addEventListener('gattserverdisconnected', () => {
+      this.handleDisconnected();
+    });
+
+    this.updateState({ status: 'connecting', statusMessage: `Connecting to ${devName}...` });
+
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(NORDIC_UART_SERVICE);
+
+    this.rxCharacteristic = await service.getCharacteristic(NORDIC_UART_RX_CHAR);
+    this.txCharacteristic = await service.getCharacteristic(NORDIC_UART_TX_CHAR);
+
+    // Start TX notifications for serial reading and responses
+    await this.txCharacteristic.startNotifications();
+    this.txCharacteristic.addEventListener('characteristicvaluechanged', (event: any) => {
+      this.handleTxNotification(event.target.value);
+    });
+
+    this.updateState({
+      status: 'connected',
+      deviceName: devName,
+      statusMessage: `Bluetooth: connected to ${devName}`
+    });
+
+    return true;
+  }
+
+  /**
+   * Synchronous disconnect to drop connection without awaiting promises before requestDevice
+   */
+  public disconnectSync(): void {
+    try {
+      if (this.device && this.device.gatt?.connected) {
+        this.device.gatt.disconnect();
+      }
+    } catch (e) {
+      console.warn('Sync disconnect warning:', e);
+    }
+    this.handleDisconnected();
+  }
+
   public async connect(targetBoardId?: string): Promise<boolean> {
     if (!this.isSupported()) {
       throw new Error('WEB_BLUETOOTH_UNSUPPORTED');
     }
 
-    // Cleanly disconnect previous connection if any
-    try {
-      if (this.device && this.device.gatt?.connected) {
-        await this.device.gatt.disconnect();
-      }
-    } catch (e) {
-      console.warn('Pre-scan disconnect warning:', e);
-    }
-    this.device = null;
-    this.rxCharacteristic = null;
-    this.txCharacteristic = null;
+    this.disconnectSync();
 
     try {
       const cleanId = (targetBoardId || '').trim().toUpperCase();
       const statusMsg = cleanId
-        ? `Searching for board PIXL-${cleanId}...`
+        ? `Searching for board ${cleanId}...`
         : 'Searching for PIXL device...';
       this.updateState({ status: 'connecting', statusMessage: statusMsg });
 
       const navBluetooth = (navigator as any).bluetooth;
-      
-      // Request device filter: exact name if cleanId given, else namePrefix 'PIXL-'
       const requestOptions: any = {
         optionalServices: [NORDIC_UART_SERVICE]
       };
 
       if (cleanId) {
-        requestOptions.filters = [{ name: `PIXL-${cleanId}` }];
+        requestOptions.filters = [{ name: cleanId }];
       } else {
-        requestOptions.filters = [{ namePrefix: 'PIXL-' }];
+        requestOptions.filters = [{ namePrefix: '' }];
       }
 
       const device = await navBluetooth.requestDevice(requestOptions);
-
-      this.device = device;
-      const devName = device.name || (cleanId ? `PIXL-${cleanId}` : 'PIXL-Board');
-
-      device.addEventListener('gattserverdisconnected', () => {
-        this.handleDisconnected();
-      });
-
-      this.updateState({ status: 'connecting', statusMessage: `Connecting to ${devName}...` });
-
-      const server = await device.gatt.connect();
-      const service = await server.getPrimaryService(NORDIC_UART_SERVICE);
-
-      this.rxCharacteristic = await service.getCharacteristic(NORDIC_UART_RX_CHAR);
-      this.txCharacteristic = await service.getCharacteristic(NORDIC_UART_TX_CHAR);
-
-      // Start TX notifications for serial reading and responses
-      await this.txCharacteristic.startNotifications();
-      this.txCharacteristic.addEventListener('characteristicvaluechanged', (event: any) => {
-        this.handleTxNotification(event.target.value);
-      });
-
-      this.updateState({
-        status: 'connected',
-        deviceName: devName,
-        statusMessage: `Connected to ${devName}`
-      });
-
-      return true;
+      return await this.connectDevice(device);
     } catch (err: any) {
       console.error('Bluetooth connection failed:', err);
       if (err.name === 'NotFoundError' || err.message?.includes('cancelled')) {
@@ -177,18 +198,30 @@ class BluetoothService {
     this.device = null;
     this.rxCharacteristic = null;
     this.txCharacteristic = null;
+
+    if (this.justUploadedSuccessfully) {
+      this.justUploadedSuccessfully = false;
+      this.updateState({
+        status: 'disconnected',
+        deviceName: null,
+        progress: 0,
+        statusMessage: 'Uploaded! The board restarted with your program.'
+      });
+      return;
+    }
+
     this.updateState({
       status: 'disconnected',
       deviceName: null,
       progress: 0,
-      statusMessage: 'Disconnected'
+      statusMessage: 'Not connected'
     });
   }
 
   public async disconnect(): Promise<void> {
     try {
       if (this.device && this.device.gatt?.connected) {
-        await this.device.gatt.disconnect();
+        this.device.gatt.disconnect();
       }
     } catch (e) {
       console.warn('Disconnect error:', e);
@@ -266,13 +299,15 @@ class BluetoothService {
       try {
         await this.performFlashAttempt(codeBytes, totalBytes, codeCrc, currentChunkSize);
         // Successful flash!
+        this.justUploadedSuccessfully = true;
         this.updateState({
           status: 'connected',
           progress: 100,
-          statusMessage: 'Uploaded! Board restarted.'
+          statusMessage: 'Uploaded! The board restarted with your program.'
         });
         return;
       } catch (err: any) {
+        this.justUploadedSuccessfully = false;
         this.emitSerial(`\n[BLE Flash Warning] Attempt ${attempt} failed: ${err.message}\n`);
         attempt++;
         if (attempt > maxAttempts) {

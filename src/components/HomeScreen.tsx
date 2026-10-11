@@ -167,8 +167,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   {/* Badges */}
                   <div className="absolute top-3 left-3 flex flex-wrap gap-1">
                     {proj.settings?.boardId && (
-                      <span className="text-[10px] bg-sky-950 text-sky-300 border border-sky-800/80 px-2 py-0.5 rounded-full font-mono font-bold shadow-sm">
-                        PIXL-{proj.settings.boardId}
+                      <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800/80 px-2 py-0.5 rounded-full font-mono font-bold shadow-sm">
+                        ID: {proj.settings.boardId}
                       </span>
                     )}
                     {proj.isPythonEdited && (

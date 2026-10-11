@@ -20,16 +20,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [chunkSize, setChunkSize] = useState(settings.bleChunkSize || 180);
   const [lang, setLang] = useState<Language>(settings.language || 'en');
-  const [boardId, setBoardId] = useState(settings.boardId || '');
 
   const handleSave = () => {
-    // Format boardId: trim, uppercase, remove leading 'PIXL-' if user typed it
-    const cleanId = boardId.trim().toUpperCase().replace(/^PIXL-/, '');
     onSaveSettings({
       ...settings,
       bleChunkSize: Math.max(20, Math.min(240, chunkSize)),
-      language: lang,
-      boardId: cleanId
+      language: lang
     });
     onClose();
   };
@@ -58,46 +54,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Settings Form */}
         <div className="space-y-4">
-          {/* Target Board ID (Classroom isolation) */}
-          <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-200">
-                {strings.boardIdSetting}
-              </label>
-              {boardId ? (
-                <span className="text-xs font-mono font-bold text-sky-400 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-800/80">
-                  PIXL-{boardId.toUpperCase().replace(/^PIXL-/, '')}
-                </span>
-              ) : (
-                <span className="text-[11px] text-slate-500 italic">
-                  {strings.boardIdAllBoards}
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-slate-400">
-              {strings.boardIdDesc}
-            </p>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-slate-500 font-semibold">PIXL-</span>
-              <input
-                type="text"
-                maxLength={8}
-                value={boardId}
-                onChange={e => setBoardId(e.target.value.toUpperCase().replace(/^PIXL-/, ''))}
-                placeholder={strings.boardIdPlaceholder}
-                className="flex-1 bg-slate-900 border border-slate-700 focus:border-sky-500 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 placeholder:text-slate-600 focus:outline-none uppercase tracking-wider"
-              />
-              {boardId && (
-                <button
-                  type="button"
-                  onClick={() => setBoardId('')}
-                  className="px-2.5 py-2 text-[11px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition font-medium"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
 
           {/* BLE Chunk Size */}
           <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
