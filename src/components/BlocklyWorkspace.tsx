@@ -106,6 +106,16 @@ export const BlocklyWorkspace: React.FC<BlocklyWorkspaceProps> = ({
       return [];
     });
 
+    // Enable automatic disabling of orphaned blocks (blocks outside container/hat blocks)
+    ws.addChangeListener(Blockly.Events.disableOrphans);
+
+    // Ensure any orphaned blocks are disabled on initial load
+    ws.getAllBlocks(false).forEach(block => {
+      if (block.getParent() === null && (block.previousConnection || block.outputConnection)) {
+        block.setDisabledReason(true, 'ORPHANED_BLOCK');
+      }
+    });
+
     // Listen to changes
     const changeListener = (e: Blockly.Events.Abstract) => {
       if (e.isUiEvent) return;

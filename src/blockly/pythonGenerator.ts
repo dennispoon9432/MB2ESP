@@ -257,13 +257,14 @@ export function generatePythonCode(workspace: Blockly.Workspace, extensions: Pro
 
   const topBlocks = workspace.getTopBlocks(true);
 
-  // Group blocks by type
+  // Group blocks by type - only recognized top-level event/loop/start containers are included
   let onStartCode = '';
   let eventCode = '';
   let foreverCode = '';
-  let looseCode = '';
 
   for (const block of topBlocks) {
+    if (!block.isEnabled()) continue;
+
     const type = block.type;
     if (type === 'mb_on_start') {
       const inner = pythonGenerator.statementToCode(block, 'DO');
@@ -279,20 +280,14 @@ export function generatePythonCode(workspace: Blockly.Workspace, extensions: Pro
       foreverCode += pythonGenerator.blockToCode(block);
     } else if (type === 'mb_on_button_pressed') {
       eventCode += pythonGenerator.blockToCode(block);
-    } else {
-      // Loose block on workspace
-      looseCode += pythonGenerator.blockToCode(block);
     }
+    // Loose blocks outside on_start, forever, or event blocks are discarded and do not execute
   }
 
   const sections: string[] = ['from pixl import *'];
 
   if (onStartCode.trim()) {
     sections.push('\n# on start\n' + onStartCode.trimEnd());
-  }
-
-  if (looseCode.trim()) {
-    sections.push('\n' + looseCode.trimEnd());
   }
 
   if (eventCode.trim()) {

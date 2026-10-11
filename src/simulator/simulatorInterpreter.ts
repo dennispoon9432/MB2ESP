@@ -13,11 +13,13 @@ export async function runBlockStatement(
   while (curr) {
     if (sim.getAbortSignal()?.aborted) return;
 
-    try {
-      await executeSingleBlock(curr, sim, vars);
-    } catch (e: any) {
-      if (e?.message === 'SIMULATION_STOPPED') return;
-      console.warn('Block execution error:', e);
+    if (curr.isEnabled()) {
+      try {
+        await executeSingleBlock(curr, sim, vars);
+      } catch (e: any) {
+        if (e?.message === 'SIMULATION_STOPPED') return;
+        console.warn('Block execution error:', e);
+      }
     }
 
     curr = curr.getNextBlock();
@@ -289,9 +291,9 @@ export async function executeWorkspace(workspace: Blockly.Workspace, sim: MB2ESP
   const vars: Record<string, any> = {};
 
   const topBlocks = workspace.getTopBlocks(true);
-  const onStartBlock = topBlocks.find(b => b.type === 'mb_on_start');
-  const foreverBlock = topBlocks.find(b => b.type === 'mb_forever');
-  const buttonBlocks = topBlocks.filter(b => b.type === 'mb_on_button_pressed');
+  const onStartBlock = topBlocks.find(b => b.type === 'mb_on_start' && b.isEnabled());
+  const foreverBlock = topBlocks.find(b => b.type === 'mb_forever' && b.isEnabled());
+  const buttonBlocks = topBlocks.filter(b => b.type === 'mb_on_button_pressed' && b.isEnabled());
 
   // 1. Register Button handlers
   for (const btnBlock of buttonBlocks) {
