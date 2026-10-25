@@ -399,11 +399,11 @@ export default function App() {
       });
     } catch (err: any) {
       if (err.name === 'NotFoundError' || err.message?.includes('cancelled') || err.message?.includes('User cancelled')) {
-        const notFoundMsg = `Board ${cleanId} not found. Put it in Bluetooth mode: press RST, then press A while the screen says 'Press A'. The screen must show ${cleanId}.`;
+        const notFoundMsg = `Board ${cleanId} not found. Put the board in Bluetooth mode: hold button A while switching the board on. Or switch it on and press A while the screen says 'Press A'. The screen then shows your Board ID in big letters (${cleanId}). Is the board switched on?`;
         setStatusNotice(notFoundMsg);
         return;
       }
-      setStatusNotice(err.message || 'Bluetooth connection cancelled');
+      setStatusNotice((err.message || 'Bluetooth connection cancelled') + '. Is the board switched on?');
       return;
     }
 
@@ -413,7 +413,7 @@ export default function App() {
       await doBleUpload(fullPythonCode);
     } catch (err: any) {
       console.error('BLE connection or upload failed:', err);
-      setStatusNotice(err.message || 'Failed to upload via Bluetooth');
+      setStatusNotice((err.message || 'Failed to upload via Bluetooth') + '. Is the board switched on?');
     }
   };
 
@@ -433,7 +433,7 @@ export default function App() {
       try {
         await doUsbUpload(fullPythonCode);
       } catch (err: any) {
-        setStatusNotice(err.message || 'USB upload failed');
+        setStatusNotice((err.message || 'USB upload failed') + '. Is the board switched on?');
       }
       return;
     }
@@ -452,9 +452,10 @@ export default function App() {
       });
     } catch (err: any) {
       if (err.name === 'NotFoundError' || err.message?.includes('cancelled')) {
+        setStatusNotice('USB device not found or selection cancelled. Is the board switched on?');
         return;
       }
-      setStatusNotice(err.message || 'USB selection cancelled');
+      setStatusNotice((err.message || 'USB selection cancelled') + '. Is the board switched on?');
       return;
     }
 
@@ -464,7 +465,7 @@ export default function App() {
       await doUsbUpload(fullPythonCode);
     } catch (err: any) {
       console.error('USB open or upload failed:', err);
-      setStatusNotice(err.message || 'Failed to upload via USB');
+      setStatusNotice((err.message || 'Failed to upload via USB') + '. Is the board switched on?');
     }
   };
 

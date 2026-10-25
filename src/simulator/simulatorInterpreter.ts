@@ -48,7 +48,7 @@ export function evalBlockValue(
       return sim.runningTime();
 
     case 'mb_button_is_pressed': {
-      const btn = block.getFieldValue('BUTTON') as 'A' | 'B';
+      const btn = (block.getFieldValue('BUTTON') || 'A') as 'A' | 'B' | 'X' | 'Y';
       return sim.isButtonPressed(btn);
     }
 
@@ -193,6 +193,29 @@ async function executeSingleBlock(
       break;
     }
 
+    case 'mb_led_set_color': {
+      const raw = block.getFieldValue('COLOR') || '#ff8800';
+      const hex = raw.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16) || 0;
+      const g = parseInt(hex.substring(2, 4), 16) || 0;
+      const b = parseInt(hex.substring(4, 6), 16) || 0;
+      sim.ledSetColor(r, g, b);
+      break;
+    }
+
+    case 'mb_led_set_rgb': {
+      const r = evalInputValue(block, 'R', sim, vars, 255);
+      const g = evalInputValue(block, 'G', sim, vars, 0);
+      const b = evalInputValue(block, 'B', sim, vars, 0);
+      sim.ledSetColor(Number(r), Number(g), Number(b));
+      break;
+    }
+
+    case 'mb_led_off': {
+      sim.ledOff();
+      break;
+    }
+
     case 'mb_pause': {
       const ms = evalInputValue(block, 'MS', sim, vars, 100);
       await sim.pause(Math.max(10, ms));
@@ -297,7 +320,7 @@ export async function executeWorkspace(workspace: Blockly.Workspace, sim: MB2ESP
 
   // 1. Register Button handlers
   for (const btnBlock of buttonBlocks) {
-    const btn = btnBlock.getFieldValue('BUTTON') as 'A' | 'B' | 'AB';
+    const btn = (btnBlock.getFieldValue('BUTTON') || 'A') as 'A' | 'B' | 'X' | 'Y' | 'AB';
     const doBlock = btnBlock.getInputTargetBlock('DO');
     sim.registerButtonHandler(btn, async () => {
       await runBlockStatement(doBlock, sim, { ...vars });

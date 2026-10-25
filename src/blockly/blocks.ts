@@ -1,10 +1,12 @@
 import * as Blockly from 'blockly';
+import { FieldColour } from '@blockly/field-colour';
 import { ProjectExtension } from '../types/project';
-import { DIGITAL_PIN_OPTIONS, ANALOG_PIN_OPTIONS } from '../board/pinMap';
+import { DIGITAL_PIN_OPTIONS, ANALOG_PIN_OPTIONS, PinDropdown } from '../board/pinMap';
 
 export const COLOR_BASIC = '#1E90FF';
 export const COLOR_INPUT = '#D400D4';
 export const COLOR_DISPLAY = '#00A4A6';
+export const COLOR_LED = '#E91E63';
 export const COLOR_PINS = '#B22222';
 export const COLOR_LOOPS = '#00AA00';
 export const COLOR_LOGIC = '#00A4A6';
@@ -57,6 +59,8 @@ export function registerAllBlocks(): void {
           new Blockly.FieldDropdown([
             ['A', 'A'],
             ['B', 'B'],
+            ['X', 'X'],
+            ['Y', 'Y'],
             ['A + B', 'AB']
           ]),
           'BUTTON'
@@ -64,7 +68,7 @@ export function registerAllBlocks(): void {
         .appendField('pressed');
       this.appendStatementInput('DO');
       this.setColour(COLOR_INPUT);
-      this.setTooltip('Runs when the specified button is clicked');
+      this.setTooltip('Runs when the specified button (A, B, X, Y, or A+B) is clicked');
     }
   };
 
@@ -75,14 +79,16 @@ export function registerAllBlocks(): void {
         .appendField(
           new Blockly.FieldDropdown([
             ['A', 'A'],
-            ['B', 'B']
+            ['B', 'B'],
+            ['X', 'X'],
+            ['Y', 'Y']
           ]),
           'BUTTON'
         )
         .appendField('is pressed');
       this.setOutput(true, 'Boolean');
       this.setColour(COLOR_INPUT);
-      this.setTooltip('Returns true if the button is currently being held down');
+      this.setTooltip('Returns true if button A, B, X, or Y is currently being held down');
     }
   };
 
@@ -175,13 +181,56 @@ export function registerAllBlocks(): void {
     }
   };
 
+  // === RGB LED CATEGORY (#E91E63) ===
+
+  Blockly.Blocks['mb_led_set_color'] = {
+    init: function () {
+      this.appendDummyInput()
+        .appendField('set LED color')
+        .appendField(new FieldColour('#ff8800'), 'COLOR');
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setColour(COLOR_LED);
+      this.setTooltip('Set the on-board WS2812 RGB LED color');
+    }
+  };
+
+  Blockly.Blocks['mb_led_set_rgb'] = {
+    init: function () {
+      this.appendValueInput('R')
+        .setCheck('Number')
+        .appendField('set LED red');
+      this.appendValueInput('G')
+        .setCheck('Number')
+        .appendField('green');
+      this.appendValueInput('B')
+        .setCheck('Number')
+        .appendField('blue');
+      this.setInputsInline(true);
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setColour(COLOR_LED);
+      this.setTooltip('Set the on-board WS2812 RGB LED red, green, and blue values (0-255)');
+    }
+  };
+
+  Blockly.Blocks['mb_led_off'] = {
+    init: function () {
+      this.appendDummyInput().appendField('turn LED off');
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setColour(COLOR_LED);
+      this.setTooltip('Turn off the on-board WS2812 RGB LED');
+    }
+  };
+
   // === PINS CATEGORY (#B22222) ===
 
   Blockly.Blocks['mb_digital_write_pin'] = {
     init: function () {
       this.appendDummyInput()
         .appendField('digital write pin')
-        .appendField(new Blockly.FieldDropdown(DIGITAL_PIN_OPTIONS), 'PIN')
+        .appendField(new PinDropdown(DIGITAL_PIN_OPTIONS), 'PIN')
         .appendField('to');
       this.appendValueInput('VALUE')
         .setCheck('Number');
@@ -189,7 +238,7 @@ export function registerAllBlocks(): void {
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setColour(COLOR_PINS);
-      this.setTooltip('Set digital pin output to 0 (LOW) or 1 (HIGH). Usable pins: GPIO 1, 2, 4, 5, 6, 7, 10, 11, 12, 15, 16, 17.');
+      this.setTooltip('Set digital pin output to 0 (LOW) or 1 (HIGH). Usable pins: GPIO 1, 2, 4, 5, 6, 7, 10, 11, 12, 13.');
     }
   };
 
@@ -197,10 +246,10 @@ export function registerAllBlocks(): void {
     init: function () {
       this.appendDummyInput()
         .appendField('digital read pin')
-        .appendField(new Blockly.FieldDropdown(DIGITAL_PIN_OPTIONS), 'PIN');
+        .appendField(new PinDropdown(DIGITAL_PIN_OPTIONS), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour(COLOR_PINS);
-      this.setTooltip('Read digital value (0 or 1) from GPIO pin. Usable pins: GPIO 1, 2, 4, 5, 6, 7, 10, 11, 12, 15, 16, 17.');
+      this.setTooltip('Read digital value (0 or 1) from GPIO pin. Usable pins: GPIO 1, 2, 4, 5, 6, 7, 10, 11, 12, 13.');
     }
   };
 
@@ -208,10 +257,10 @@ export function registerAllBlocks(): void {
     init: function () {
       this.appendDummyInput()
         .appendField('analog read pin')
-        .appendField(new Blockly.FieldDropdown(ANALOG_PIN_OPTIONS), 'PIN');
+        .appendField(new PinDropdown(ANALOG_PIN_OPTIONS), 'PIN');
       this.setOutput(true, 'Number');
       this.setColour(COLOR_PINS);
-      this.setTooltip('Read analog voltage (0 to 1023) from GPIO pin. GPIO 1, 2, 4, 5, 6, 7, 10 always work; GPIO 11, 12, 15, 16, 17 do not work while Wi-Fi is on.');
+      this.setTooltip('Read analog voltage (0 to 1023) from GPIO pin. GPIO 1, 2, 4, 5, 6, 7, 10 always work; GPIO 11, 12, 13 do not work while Wi-Fi is on.');
     }
   };
 
@@ -219,7 +268,7 @@ export function registerAllBlocks(): void {
     init: function () {
       this.appendDummyInput()
         .appendField('analog write pin')
-        .appendField(new Blockly.FieldDropdown(DIGITAL_PIN_OPTIONS), 'PIN')
+        .appendField(new PinDropdown(DIGITAL_PIN_OPTIONS), 'PIN')
         .appendField('to');
       this.appendValueInput('VALUE')
         .setCheck('Number');
@@ -235,7 +284,7 @@ export function registerAllBlocks(): void {
     init: function () {
       this.appendDummyInput()
         .appendField('servo write pin')
-        .appendField(new Blockly.FieldDropdown(DIGITAL_PIN_OPTIONS), 'PIN')
+        .appendField(new PinDropdown(DIGITAL_PIN_OPTIONS), 'PIN')
         .appendField('to angle');
       this.appendValueInput('ANGLE')
         .setCheck('Number');
@@ -243,7 +292,7 @@ export function registerAllBlocks(): void {
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
       this.setColour(COLOR_PINS);
-      this.setTooltip('Rotate servo motor on GPIO pin to specified angle (0 to 180 degrees). Usable pins: GPIO 1, 2, 4, 5, 6, 7, 10, 11, 12, 15, 16, 17.');
+      this.setTooltip('Rotate servo motor on GPIO pin to specified angle (0 to 180 degrees). Plug servos into the 3-pin socket on GPIO4: it has battery power for the motor.');
     }
   };
 

@@ -106,19 +106,34 @@ export const BlocklyWorkspace: React.FC<BlocklyWorkspaceProps> = ({
       return [];
     });
 
+    // Helper to warn on deprecated pins (GPIO 15, 16, 17)
+    const checkPinWarnings = (workspace: Blockly.Workspace) => {
+      const blocks = workspace.getAllBlocks(false);
+      for (const b of blocks) {
+        const pin = b.getFieldValue('PIN');
+        if (pin && ['15', '16', '17', 'P6', 'P7', 'P8'].includes(String(pin))) {
+          b.setWarningText("This pin doesn't exist on the PIXL board, choose another one");
+        } else if ((b as any).getWarningText?.()?.includes("doesn't exist on the PIXL board")) {
+          b.setWarningText(null);
+        }
+      }
+    };
+
     // Enable automatic disabling of orphaned blocks (blocks outside container/hat blocks)
     ws.addChangeListener(Blockly.Events.disableOrphans);
 
-    // Ensure any orphaned blocks are disabled on initial load
+    // Ensure any orphaned blocks are disabled on initial load and check pin warnings
     ws.getAllBlocks(false).forEach(block => {
       if (block.getParent() === null && (block.previousConnection || block.outputConnection)) {
         block.setDisabledReason(true, 'ORPHANED_BLOCK');
       }
     });
+    checkPinWarnings(ws);
 
     // Listen to changes
     const changeListener = (e: Blockly.Events.Abstract) => {
       if (e.isUiEvent) return;
+      checkPinWarnings(ws);
 
       if (changeTimeoutRef.current) {
         clearTimeout(changeTimeoutRef.current);
@@ -141,6 +156,7 @@ export const BlocklyWorkspace: React.FC<BlocklyWorkspaceProps> = ({
     // Initial resize and trigger initial simulation
     setTimeout(() => {
       Blockly.svgResize(ws);
+      checkPinWarnings(ws);
       try {
         const xmlDom = Blockly.Xml.workspaceToDom(ws);
         const xmlText = Blockly.Xml.domToText(xmlDom);

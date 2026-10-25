@@ -1,9 +1,3 @@
-/**
- * Internationalization strings for MB2ESP Code Studio
- * All user-facing strings are localized here.
- * English is default; Chinese (and others) can easily be added.
- */
-
 export interface AppStrings {
   appName: string;
   appSubtitle: string;
@@ -61,6 +55,8 @@ export interface AppStrings {
   simulatorPause: string;
   buttonA: string;
   buttonB: string;
+  buttonX: string;
+  buttonY: string;
   buttonAB: string;
   resetButton: string;
   pins: string;
@@ -92,11 +88,13 @@ export interface AppStrings {
   boardIdTooltip: string;
   boardIdHint: string;
   notConnected: string;
+  pairingInstructions: string;
+  batteryPowerNote: string;
 }
 
 export const stringsEn: AppStrings = {
-  appName: "MB2ESP Code Studio",
-  appSubtitle: "Block & Python Editor for MB2ESP",
+  appName: "PIXL Code Studio",
+  appSubtitle: "Block & Python Editor for PIXL (ESP32-S3)",
   home: "Home",
   newProject: "New Project",
   myProjects: "My Projects",
@@ -114,17 +112,17 @@ export const stringsEn: AppStrings = {
   connecting: "Connecting...",
   connectedTo: "Connected to",
   flash: "Download to Board",
-  flashing: "Flashing MB2ESP...",
-  flashSuccess: "Code successfully uploaded to MB2ESP!",
+  flashing: "Flashing PIXL...",
+  flashSuccess: "Code successfully uploaded to PIXL!",
   flashError: "Flashing failed",
   pairingHelp: "Pairing Guide",
-  pairingHelpTitle: "How to connect your MB2ESP board",
-  pairingStep1: "Turn on your MB2ESP board using USB or battery.",
-  pairingStep2: "Press and release RESET, then press Button A while the screen says 'Press A for BLE upload'.",
-  pairingStep3: "The OLED screen will display your 6-character board ID (e.g. A96E08).",
+  pairingHelpTitle: "How to connect your PIXL board",
+  pairingStep1: "Switch the board on using its power switch. (The board runs from its battery; USB alone only charges it).",
+  pairingStep2: "Put the board in Bluetooth mode: hold button A while switching the board on. Or switch it on and press A while the screen says 'Press A'.",
+  pairingStep3: "The screen then shows your Board ID in big letters (e.g. A96E08).",
   pairingStep4: "Type this ID in the Board ID box and click 'Upload via Bluetooth'.",
-  pairingPrototypeNote: "On the ESP32-S3 DevKit prototype, Button A is the BOOT button. Don't hold it while pressing RESET.",
-  pairingUsbHelp: "USB: plug in the board, click Upload via USB and choose the port. No buttons needed.",
+  pairingPrototypeNote: "On the ESP32-S3 DevKit prototype, BOOT (GPIO0) also works during the 1.5 s startup window. Don't hold BOOT while pressing RESET.",
+  pairingUsbHelp: "USB: plug in the board, ensure it is switched on, click Upload via USB and choose the port. No buttons needed.",
   connectUsb: "Connect USB",
   disconnectUsb: "Disconnect USB",
   connectedToUsb: "Connected via USB",
@@ -144,13 +142,15 @@ export const stringsEn: AppStrings = {
   save: "Save",
   serialConsole: "Serial Console",
   serialClear: "Clear Console",
-  serialPlaceholder: "Listening for MB2ESP serial data...",
+  serialPlaceholder: "Listening for PIXL serial data...",
   simulator: "Simulator",
   simulatorReset: "Restart Simulator",
   simulatorPlay: "Run Simulator",
   simulatorPause: "Pause Simulator",
   buttonA: "A",
   buttonB: "B",
+  buttonX: "X",
+  buttonY: "Y",
   buttonAB: "A + B",
   resetButton: "RST",
   pins: "GPIO Pins",
@@ -182,11 +182,13 @@ export const stringsEn: AppStrings = {
   boardIdTooltip: "The 6 letters/numbers on your board's screen in Bluetooth mode",
   boardIdHint: "6 characters, 0-9 and A-F",
   notConnected: "Not connected",
+  pairingInstructions: "Put the board in Bluetooth mode: hold button A while switching the board on. Or switch it on and press A while the screen says 'Press A'. The screen then shows your Board ID in big letters.",
+  batteryPowerNote: "The board runs from its battery: USB alone only charges it. Is the board switched on?",
 };
 
 export const stringsZh: AppStrings = {
-  appName: "MB2ESP 積木編程",
-  appSubtitle: "MB2ESP 圖形化與 Python 編輯器",
+  appName: "PIXL 積木編程",
+  appSubtitle: "PIXL (ESP32-S3) 圖形化與 Python 編輯器",
   home: "首頁",
   newProject: "新建項目",
   myProjects: "我的項目",
@@ -204,17 +206,17 @@ export const stringsZh: AppStrings = {
   connecting: "正在連接...",
   connectedTo: "已連接至",
   flash: "下載到板子",
-  flashing: "正在燒錄 MB2ESP...",
-  flashSuccess: "代碼已成功下載到 MB2ESP 板！",
+  flashing: "正在燒錄 PIXL...",
+  flashSuccess: "代碼已成功下載到 PIXL 板！",
   flashError: "燒錄失敗",
   pairingHelp: "配對指南",
-  pairingHelpTitle: "如何配對 MB2ESP 板",
-  pairingStep1: "使用 USB 線或電池開啟 MB2ESP 電源。",
-  pairingStep2: "按下並鬆開 RESET 復位鍵，當屏幕顯示「Press A for BLE upload」時按下 A 按鍵。",
-  pairingStep3: "OLED 屏幕上將顯示 6 個字元的板子 ID（例如 A96E08）。",
+  pairingHelpTitle: "如何配對 PIXL 板",
+  pairingStep1: "打開板子的電源開關。（板子依靠內建鋰電池供電運行，USB 僅提供充電）。",
+  pairingStep2: "進入藍牙模式：開機時按住 A 按鍵；或開機後在螢幕顯示「Press A」時按下 A 鍵。",
+  pairingStep3: "螢幕上將以大字顯示 6 個字元的板子 ID（例如 A96E08）。",
   pairingStep4: "在板子 ID 欄位輸入此 ID，並點擊「透過藍牙上傳」。",
-  pairingPrototypeNote: "在 ESP32-S3 開發板原型機上，A 按鍵為 BOOT 按鈕。按下 RESET 時請勿按住它。",
-  pairingUsbHelp: "USB 燒錄：插入板子，點擊「透過 USB 上傳」並選擇串口，無需按下任何按鈕。",
+  pairingPrototypeNote: "在 ESP32-S3 開發板原型機上，BOOT (GPIO0) 按鍵也可在開機 1.5 秒內觸發。按下 RESET 時請勿按住 BOOT。",
+  pairingUsbHelp: "USB 燒錄：插入板子並確認電源開關已開啟，點擊「透過 USB 上傳」並選擇串口，無需按下任何按鍵。",
   connectUsb: "連接 USB",
   disconnectUsb: "斷開 USB",
   connectedToUsb: "已通過 USB 連接",
@@ -234,13 +236,15 @@ export const stringsZh: AppStrings = {
   save: "保存",
   serialConsole: "串口控制台",
   serialClear: "清空控制台",
-  serialPlaceholder: "等待接收 MB2ESP 串口數據...",
+  serialPlaceholder: "等待接收 PIXL 串口數據...",
   simulator: "仿真模擬器",
   simulatorReset: "重置模擬器",
   simulatorPlay: "運行模擬",
   simulatorPause: "暫停模擬",
   buttonA: "A",
   buttonB: "B",
+  buttonX: "X",
+  buttonY: "Y",
   buttonAB: "A + B",
   resetButton: "復位",
   pins: "引腳狀態",
@@ -272,6 +276,8 @@ export const stringsZh: AppStrings = {
   boardIdTooltip: "板子處於藍牙模式時螢幕顯示的 6 個英數字",
   boardIdHint: "6 個字元，0-9 與 A-F",
   notConnected: "未連接",
+  pairingInstructions: "進入藍牙模式：開機時按住 A 按鍵；或開機後在螢幕顯示「Press A」時按下 A 鍵。螢幕隨後會以大字顯示板子 ID。",
+  batteryPowerNote: "板子依靠電池運行，USB 僅充電。板子電源是否已開啟？",
 };
 
 export type Language = 'en' | 'zh';

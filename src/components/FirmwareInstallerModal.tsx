@@ -126,7 +126,7 @@ export const FirmwareInstallerModal: React.FC<FirmwareInstallerModalProps> = ({ 
       msg.includes('timeout waiting for packet') ||
       msg.includes('could not enter')
     ) {
-      return 'Board not in install mode. Hold BOOT, press and release RST, release BOOT, then try again.';
+      return 'Board not in install mode. Switch the board on. On the back, hold BOOT, press and release RST, then release BOOT. The screen stays blank; that is normal.';
     }
     if (msg.includes('cancelled') || msg.includes('notfounderror')) {
       return 'Port selection was cancelled. Please select the board to continue.';
@@ -506,7 +506,7 @@ export const FirmwareInstallerModal: React.FC<FirmwareInstallerModalProps> = ({ 
                 <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 space-y-1">
                   <p className="font-semibold text-amber-300">Hardware Button Sequence:</p>
                   <p className="leading-relaxed">
-                    Hold the <strong className="text-white">BOOT</strong> button, press and release <strong className="text-white">RST</strong>, then release <strong className="text-white">BOOT</strong>.
+                    Switch the board on. On the back, hold <strong className="text-white">BOOT</strong>, press and release <strong className="text-white">RST</strong>, then release <strong className="text-white">BOOT</strong>.
                   </p>
                   <p className="text-[11px] text-slate-400 italic">The screen stays blank; that is normal.</p>
                 </div>

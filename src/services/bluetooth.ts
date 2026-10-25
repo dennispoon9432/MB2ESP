@@ -171,13 +171,13 @@ class BluetoothService {
       if (err.name === 'NotFoundError' || err.message?.includes('cancelled')) {
         this.updateState({
           status: 'disconnected',
-          statusMessage: 'Connection cancelled'
+          statusMessage: 'Connection cancelled. Is the board switched on?'
         });
         return false;
       }
       this.updateState({
         status: 'error',
-        statusMessage: err.message || 'Connection failed'
+        statusMessage: (err.message || 'Connection failed') + '. Is the board switched on?'
       });
       throw err;
     }

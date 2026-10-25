@@ -3,6 +3,7 @@ import {
   COLOR_BASIC,
   COLOR_INPUT,
   COLOR_DISPLAY,
+  COLOR_LED,
   COLOR_PINS,
   COLOR_LOOPS,
   COLOR_LOGIC,
@@ -96,6 +97,30 @@ export function getToolbox(extensions: ProjectExtension[] = []): any {
           }
         },
         { kind: 'block', type: 'mb_oled_clear' }
+      ]
+    },
+    {
+      kind: 'category',
+      name: 'LED',
+      colour: COLOR_LED,
+      contents: [
+        {
+          kind: 'block',
+          type: 'mb_led_set_color'
+        },
+        {
+          kind: 'block',
+          type: 'mb_led_set_rgb',
+          inputs: {
+            R: { shadow: { type: 'mb_math_number', fields: { NUM: 255 } } },
+            G: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } },
+            B: { shadow: { type: 'mb_math_number', fields: { NUM: 0 } } }
+          }
+        },
+        {
+          kind: 'block',
+          type: 'mb_led_off'
+        }
       ]
     },
     {

@@ -5,6 +5,7 @@
     "": {
       "name": "react-example",
       "dependencies": {
+        "@blockly/field-colour": "^13.4.0",
         "@google/genai": "^2.4.0",
         "@monaco-editor/react": "^4.7.0",
         "@tailwindcss/vite": "^4.3.3",
@@ -42,6 +43,10 @@
     "@asamuzakjp/generational-cache": ["@asamuzakjp/generational-cache@1.0.1", "", {}, "sha512-wajfB8KqzMCN2KGNFdLkReeHncd0AslUSrvHVvvYWuU8ghncRJoA50kT3zP9MVL0+9g4/67H+cdvBskj9THPzg=="],
 
     "@asamuzakjp/nwsapi": ["@asamuzakjp/nwsapi@2.3.9", "", {}, "sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q=="],
+
+    "@blockly/field-colour": ["@blockly/field-colour@13.4.0", "", { "dependencies": { "@blockly/field-grid-dropdown": "^13.4.0" }, "peerDependencies": { "blockly": "^13.2.0" } }, "sha512-OwzKdUlyz8dEZleTxB2pkqDCLuHsdtV/fz2Jwm7r7+ftJ8TH35secW/uJF3r+Gb/5OGoFkjzkptvZBl3QXV56g=="],
+
+    "@blockly/field-grid-dropdown": ["@blockly/field-grid-dropdown@13.4.0", "", { "peerDependencies": { "blockly": "^13.2.0" } }, "sha512-kUvErMzblFo9HfH2JaQSgK4Hbaf/ntmjYIj+GOd2McCLvQkHb+9XIttYUuyZO8WPUHjG6Vk4JJ1GiQfAXp5cbA=="],
 
     "@bramus/specificity": ["@bramus/specificity@2.4.3", "", { "dependencies": { "css-tree": "^3.2.1" }, "bin": { "specificity": "bin/cli.js" } }, "sha512-0GEz8qJWokkUVYQYRukmkSHIFNoBH8QTreeHrAFbvz1XFYc3Y+puhMs8PQ5x8GNugiC2l5jvDBXKLbBIByeSBw=="],
 

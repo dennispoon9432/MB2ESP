@@ -1,10 +1,11 @@
 /**
- * MB2ESP Virtual Hardware Simulator
+ * PIXL Virtual Hardware Simulator (ESP32-S3)
  * Simulates:
  * - 128x64 OLED monochrome display (SSD1306 style)
- * - Tactile Button A, Button B, and Button A+B events
+ * - Tactile Button A (top-left), Button B (top-right), Button X (bottom-left), Button Y (bottom-right), and A+B
+ * - WS2812 RGB LED (full RGB color 0-255)
  * - Hardware Reset (RST)
- * - GPIO Pins P0 to P8 (digital, analog, servo)
+ * - 10 Usable GPIO Pins (GPIO 1, 2, 4, 5, 6, 7, 10, 11, 12, 13)
  * - Serial output
  */
 
@@ -19,6 +20,9 @@ export interface SimulatorPinState {
 export interface SimulatorState {
   buttonA: boolean;
   buttonB: boolean;
+  buttonX: boolean;
+  buttonY: boolean;
+  ledColor: { r: number; g: number; b: number };
   runningTime: number;
   pins: Record<number, SimulatorPinState>;
   isRunning: boolean;
@@ -38,6 +42,8 @@ export class MB2ESPSimulator {
   private buttonHandlers: { [key: string]: (() => Promise<void>)[] } = {
     A: [],
     B: [],
+    X: [],
+    Y: [],
     AB: []
   };
   private onStateChange: ((state: SimulatorState) => void) | null = null;
@@ -61,6 +67,9 @@ export class MB2ESPSimulator {
     return {
       buttonA: false,
       buttonB: false,
+      buttonX: false,
+      buttonY: false,
+      ledColor: { r: 0, g: 0, b: 0 },
       runningTime: 0,
       pins,
       isRunning: false
@@ -150,13 +159,17 @@ export class MB2ESPSimulator {
     this.notify();
   }
 
-  // --- Buttons ---
+  // --- Buttons (A, B, X, Y, AB) ---
 
-  public async pressButton(btn: 'A' | 'B' | 'AB'): Promise<void> {
+  public async pressButton(btn: 'A' | 'B' | 'X' | 'Y' | 'AB'): Promise<void> {
     if (btn === 'A') {
       this.state.buttonA = true;
     } else if (btn === 'B') {
       this.state.buttonB = true;
+    } else if (btn === 'X') {
+      this.state.buttonX = true;
+    } else if (btn === 'Y') {
+      this.state.buttonY = true;
     } else {
       this.state.buttonA = true;
       this.state.buttonB = true;
@@ -173,6 +186,8 @@ export class MB2ESPSimulator {
     setTimeout(() => {
       if (btn === 'A') this.state.buttonA = false;
       else if (btn === 'B') this.state.buttonB = false;
+      else if (btn === 'X') this.state.buttonX = false;
+      else if (btn === 'Y') this.state.buttonY = false;
       else {
         this.state.buttonA = false;
         this.state.buttonB = false;
@@ -181,13 +196,35 @@ export class MB2ESPSimulator {
     }, 200);
   }
 
-  public isButtonPressed(btn: 'A' | 'B'): boolean {
-    return btn === 'A' ? this.state.buttonA : this.state.buttonB;
+  public isButtonPressed(btn: 'A' | 'B' | 'X' | 'Y'): boolean {
+    switch (btn) {
+      case 'A': return this.state.buttonA;
+      case 'B': return this.state.buttonB;
+      case 'X': return this.state.buttonX;
+      case 'Y': return this.state.buttonY;
+      default: return false;
+    }
   }
 
-  public registerButtonHandler(btn: 'A' | 'B' | 'AB', fn: () => Promise<void>): void {
+  public registerButtonHandler(btn: 'A' | 'B' | 'X' | 'Y' | 'AB', fn: () => Promise<void>): void {
     if (!this.buttonHandlers[btn]) this.buttonHandlers[btn] = [];
     this.buttonHandlers[btn].push(fn);
+  }
+
+  // --- RGB LED (WS2812) ---
+
+  public ledSetColor(r: number, g: number, b: number): void {
+    this.state.ledColor = {
+      r: Math.max(0, Math.min(255, Math.round(r))),
+      g: Math.max(0, Math.min(255, Math.round(g))),
+      b: Math.max(0, Math.min(255, Math.round(b)))
+    };
+    this.notify();
+  }
+
+  public ledOff(): void {
+    this.state.ledColor = { r: 0, g: 0, b: 0 };
+    this.notify();
   }
 
   // --- Pins ---
@@ -256,22 +293,20 @@ export class MB2ESPSimulator {
       this.abortController.abort();
       this.abortController = null;
     }
-    this.buttonHandlers = { A: [], B: [], AB: [] };
+    this.buttonHandlers = { A: [], B: [], X: [], Y: [], AB: [] };
     this.state.isRunning = false;
+    this.state.buttonA = false;
+    this.state.buttonB = false;
+    this.state.buttonX = false;
+    this.state.buttonY = false;
     this.notify();
   }
 
-  /**
-   * Reset hardware state and request code execution restart
-   */
   public restart(): void {
     this.stop();
     this.oledClear();
+    this.ledOff();
     this.startTime = Date.now();
-    this.abortController = new AbortController();
-    this.state.isRunning = true;
-    this.notify();
-
     // Trigger workspace execution restart callback if registered
     if (this.onRequestRestart) {
       this.onRequestRestart();
@@ -281,6 +316,7 @@ export class MB2ESPSimulator {
   public prepareNewRun(): AbortSignal {
     this.stop();
     this.oledClear();
+    this.ledOff();
     this.startTime = Date.now();
     this.abortController = new AbortController();
     this.state.isRunning = true;

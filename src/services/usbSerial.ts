@@ -129,10 +129,10 @@ class USBSerialService {
     } catch (err: any) {
       console.error('USB Serial connection failed:', err);
       if (err.name === 'NotFoundError' || err.message?.includes('cancelled')) {
-        this.updateState({ status: 'disconnected', statusMessage: 'Not connected' });
+        this.updateState({ status: 'disconnected', statusMessage: 'Not connected. Is the board switched on?' });
         return false;
       }
-      this.updateState({ status: 'error', statusMessage: err.message || 'USB Connection failed' });
+      this.updateState({ status: 'error', statusMessage: (err.message || 'USB Connection failed') + '. Is the board switched on?' });
       throw err;
     }
   }

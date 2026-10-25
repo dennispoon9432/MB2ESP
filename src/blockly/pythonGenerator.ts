@@ -35,13 +35,34 @@ export function registerPythonGenerators(): void {
   };
 
   pythonGenerator.forBlock['mb_button_is_pressed'] = function (block) {
-    const btn = block.getFieldValue('BUTTON') || 'A';
-    const code = btn === 'B' ? 'button_b.is_pressed()' : 'button_a.is_pressed()';
+    const btn = (block.getFieldValue('BUTTON') || 'A').toLowerCase();
+    const code = `button_${btn}.is_pressed()`;
     return [code, Order.FUNCTION_CALL];
   };
 
   pythonGenerator.forBlock['mb_running_time'] = function () {
     return ['running_time()', Order.FUNCTION_CALL];
+  };
+
+  // RGB LED category
+  pythonGenerator.forBlock['mb_led_set_color'] = function (block) {
+    const raw = block.getFieldValue('COLOR') || '#ff8800';
+    const hex = raw.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+    return `led.color(${r}, ${g}, ${b})\n`;
+  };
+
+  pythonGenerator.forBlock['mb_led_set_rgb'] = function (block) {
+    const r = pythonGenerator.valueToCode(block, 'R', Order.NONE) || '0';
+    const g = pythonGenerator.valueToCode(block, 'G', Order.NONE) || '0';
+    const b = pythonGenerator.valueToCode(block, 'B', Order.NONE) || '0';
+    return `led.color(${r}, ${g}, ${b})\n`;
+  };
+
+  pythonGenerator.forBlock['mb_led_off'] = function () {
+    return 'led.off()\n';
   };
 
   // Display / OLED category
