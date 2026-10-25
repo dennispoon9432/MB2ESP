@@ -61,6 +61,11 @@ export function registerPythonGenerators(): void {
     return `led.color(${r}, ${g}, ${b})\n`;
   };
 
+  pythonGenerator.forBlock['mb_led_set_brightness'] = function (block) {
+    const b = pythonGenerator.valueToCode(block, 'BRIGHTNESS', Order.NONE) || '255';
+    return `led.brightness(${b})\n`;
+  };
+
   pythonGenerator.forBlock['mb_led_off'] = function () {
     return 'led.off()\n';
   };

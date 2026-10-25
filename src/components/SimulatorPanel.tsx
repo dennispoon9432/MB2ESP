@@ -43,8 +43,13 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
   };
 
   const led = simState.ledColor || { r: 0, g: 0, b: 0 };
-  const isLedLit = led.r > 0 || led.g > 0 || led.b > 0;
-  const rgbColorString = `rgb(${led.r}, ${led.g}, ${led.b})`;
+  const brightness = simState.ledBrightness !== undefined ? simState.ledBrightness : 255;
+  const scale = brightness / 255;
+  const adjR = Math.round(led.r * scale);
+  const adjG = Math.round(led.g * scale);
+  const adjB = Math.round(led.b * scale);
+  const isLedLit = (adjR > 0 || adjG > 0 || adjB > 0) && brightness > 0;
+  const rgbColorString = `rgb(${adjR}, ${adjG}, ${adjB})`;
 
   return (
     <div className="flex flex-col bg-slate-900 border-r border-slate-800 w-80 lg:w-[380px] select-none shrink-0 h-full">
@@ -154,7 +159,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                 }}
                 title={
                   isLedLit
-                    ? `RGB LED: (${led.r}, ${led.g}, ${led.b})`
+                    ? `RGB LED: (${adjR}, ${adjG}, ${adjB}) [Brightness: ${brightness}]`
                     : 'WS2812 RGB LED (Off)'
                 }
               >

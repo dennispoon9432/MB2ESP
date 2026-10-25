@@ -214,6 +214,19 @@ export function registerAllBlocks(): void {
     }
   };
 
+  Blockly.Blocks['mb_led_set_brightness'] = {
+    init: function () {
+      this.appendValueInput('BRIGHTNESS')
+        .setCheck('Number')
+        .appendField('set LED brightness');
+      this.setInputsInline(true);
+      this.setPreviousStatement(true, null);
+      this.setNextStatement(true, null);
+      this.setColour(COLOR_LED);
+      this.setTooltip('Set the brightness of the on-board WS2812 RGB LED (0 to 255)');
+    }
+  };
+
   Blockly.Blocks['mb_led_off'] = {
     init: function () {
       this.appendDummyInput().appendField('turn LED off');

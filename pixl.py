@@ -322,17 +322,29 @@ def servo_stop(p):
 
 
 # ---------------------------------------------------------------------------
-# RGB LED (one WS2812 on the board), colors 0-255
+# RGB LED (one WS2812 on the board), colors 0-255, brightness 0-255
 # ---------------------------------------------------------------------------
 class _RgbLed:
     def __init__(self):
         self._np = None
+        self._brightness = 255
+        self._rgb = (0, 0, 0)
+
+    def brightness(self, val):
+        self._brightness = max(0, min(255, int(val)))
+        if self._rgb != (0, 0, 0):
+            self._write()
 
     def color(self, r, g, b):
+        self._rgb = (int(r), int(g), int(b))
+        self._write()
+
+    def _write(self):
         if self._np is None:
             import neopixel
             self._np = neopixel.NeoPixel(Pin(RGB_LED_GPIO), 1)
-        self._np[0] = tuple(max(0, min(255, int(v))) for v in (r, g, b))
+        scale = self._brightness / 255.0
+        self._np[0] = tuple(max(0, min(255, int(v * scale))) for v in self._rgb)
         self._np.write()
 
     def off(self):

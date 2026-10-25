@@ -119,6 +119,13 @@ export function getToolbox(extensions: ProjectExtension[] = []): any {
         },
         {
           kind: 'block',
+          type: 'mb_led_set_brightness',
+          inputs: {
+            BRIGHTNESS: { shadow: { type: 'mb_math_number', fields: { NUM: 255 } } }
+          }
+        },
+        {
+          kind: 'block',
           type: 'mb_led_off'
         }
       ]

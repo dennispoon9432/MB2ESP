@@ -22,6 +22,7 @@ class USBSerialService {
   private keepReading = false;
   private readingPromise: Promise<void> | null = null;
   private isDisconnecting = false;
+  private isRestarting = false;
   private readBuffer: string = '';
   private state: USBSerialState = {
     status: 'disconnected',
@@ -37,6 +38,10 @@ class USBSerialService {
     if (typeof navigator !== 'undefined' && 'serial' in navigator) {
       try {
         (navigator as any).serial.addEventListener('disconnect', (event: any) => {
+          if (this.isRestarting) {
+            // Expected disconnection during board reboot; do not treat as error or interrupt restart flow
+            return;
+          }
           if (this.port && event.port === this.port) {
             console.log('USB device disconnected by physical removal');
             this.disconnect();
@@ -251,6 +256,136 @@ class USBSerialService {
     }
   }
 
+  /**
+   * Quietly close the existing port and streams during a planned board restart
+   * without emitting errors or user warnings.
+   */
+  public async quietClose(): Promise<void> {
+    this.keepReading = false;
+    if (this.reader) {
+      try {
+        await Promise.race([
+          this.reader.cancel(),
+          new Promise(r => setTimeout(r, 200))
+        ]);
+      } catch (e) {}
+      try {
+        this.reader.releaseLock();
+      } catch (e) {}
+      this.reader = null;
+    }
+    if (this.port) {
+      try {
+        await this.port.close();
+      } catch (e) {}
+      this.port = null;
+    }
+    this.isReading = false;
+    this.readingPromise = null;
+    this.readBuffer = '';
+  }
+
+  /**
+   * Reconnect automatically after board restart:
+   * Listen for navigator.serial "connect" events and/or check navigator.serial.getPorts()
+   * every 500 ms for up to 8 seconds for a port with usbVendorId 0x303A and usbProductId 0x4001,
+   * then open it again at 115200 so the serial monitor keeps showing print() output.
+   */
+  public async autoReconnectAfterReset(maxWaitMs = 8000): Promise<boolean> {
+    if (!this.isSupported()) {
+      this.isRestarting = false;
+      return false;
+    }
+
+    const navSerial = (navigator as any).serial;
+    const startTime = Date.now();
+
+    return new Promise<boolean>((resolve) => {
+      let resolved = false;
+      let intervalId: any = null;
+
+      const cleanup = () => {
+        if (intervalId) clearInterval(intervalId);
+        try {
+          navSerial.removeEventListener('connect', onConnect);
+        } catch (e) {}
+      };
+
+      const tryOpen = async (targetPort: any): Promise<boolean> => {
+        try {
+          const info = targetPort.getInfo ? targetPort.getInfo() : {};
+          const isS3 =
+            info.usbVendorId === 0x303A &&
+            (info.usbProductId === 0x4001 || !info.usbProductId);
+
+          if (!isS3 && info.usbVendorId !== 0x303A) {
+            return false;
+          }
+
+          // Open the port at 115200 baud
+          await this.openPort(targetPort);
+          if (!resolved) {
+            resolved = true;
+            this.isRestarting = false;
+            cleanup();
+            this.updateState({
+              status: 'connected',
+              deviceName: 'USB Serial (115200)',
+              statusMessage: 'USB: connected'
+            });
+            resolve(true);
+          }
+          return true;
+        } catch (err) {
+          // Port may still be initializing by the OS, will retry next tick
+          return false;
+        }
+      };
+
+      const onConnect = async (event: any) => {
+        if (resolved) return;
+        const p = event?.port;
+        if (p) {
+          await tryOpen(p);
+        }
+      };
+
+      try {
+        navSerial.addEventListener('connect', onConnect);
+      } catch (e) {}
+
+      // Polling every 500 ms for up to 8 seconds
+      intervalId = setInterval(async () => {
+        if (resolved) {
+          cleanup();
+          return;
+        }
+
+        if (Date.now() - startTime > maxWaitMs) {
+          resolved = true;
+          cleanup();
+          this.isRestarting = false;
+          this.updateState({
+            status: 'disconnected',
+            deviceName: null,
+            statusMessage: 'USB: not connected'
+          });
+          resolve(false);
+          return;
+        }
+
+        try {
+          const ports = await navSerial.getPorts();
+          for (const p of ports) {
+            if (await tryOpen(p)) {
+              return;
+            }
+          }
+        } catch (e) {}
+      }, 500);
+    });
+  }
+
   private handleDisconnected() {
     this.port = null;
     this.reader = null;
@@ -401,18 +536,36 @@ class USBSerialService {
       this.updateState({ progress: 95, statusMessage: 'Closing main.py...' });
       await executeRawCommand('f.close()\n');
 
-      // f. Exit raw REPL (Ctrl-B) and soft-reset (Ctrl-D)
-      this.updateState({ progress: 98, statusMessage: 'Soft resetting board...' });
-      await this.sendText('\x02');
-      await new Promise(r => setTimeout(r, 100));
-      await this.sendText('\x04');
+      // f. Full restart of the board instead of soft reset (Ctrl-D)
+      this.updateState({ progress: 98, statusMessage: 'Restarting board...' });
+      this.isRestarting = true;
+
+      // Still in raw REPL, execute full restart with JUSTFLASHED flag so boot.py starts new program straight away
+      const restartScript = 'import machine\nmachine.RTC().memory(b"JUSTFLASHED")\nmachine.reset()\n\x04';
+      try {
+        await this.sendText(restartScript);
+        await new Promise(r => setTimeout(r, 100));
+      } catch (e) {
+        // Hardware reset drops USB immediately, which is normal and expected
+      }
+
+      // Close the reader/writer and port quietly without reporting error
+      await this.quietClose();
 
       this.updateState({
         status: 'connected',
         progress: 100,
-        statusMessage: 'Flashed main.py successfully via USB!'
+        statusMessage: 'Uploaded! The board restarted with your program.'
+      });
+
+      // Automatically reconnect so serial monitor keeps showing print() output
+      this.autoReconnectAfterReset(8000).catch(reconnectErr => {
+        console.warn('USB auto-reconnect warning:', reconnectErr);
       });
     } catch (err: any) {
+      if (this.isRestarting) {
+        return;
+      }
       console.error('USB flash error:', err);
       this.updateState({
         status: 'error',

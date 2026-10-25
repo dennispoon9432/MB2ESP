@@ -23,6 +23,7 @@ export interface SimulatorState {
   buttonX: boolean;
   buttonY: boolean;
   ledColor: { r: number; g: number; b: number };
+  ledBrightness: number; // 0 to 255
   runningTime: number;
   pins: Record<number, SimulatorPinState>;
   isRunning: boolean;
@@ -70,6 +71,7 @@ export class MB2ESPSimulator {
       buttonX: false,
       buttonY: false,
       ledColor: { r: 0, g: 0, b: 0 },
+      ledBrightness: 255,
       runningTime: 0,
       pins,
       isRunning: false
@@ -227,6 +229,11 @@ export class MB2ESPSimulator {
     this.notify();
   }
 
+  public ledSetBrightness(val: number): void {
+    this.state.ledBrightness = Math.max(0, Math.min(255, Math.round(val)));
+    this.notify();
+  }
+
   // --- Pins ---
 
   public pinWrite(pin: number, val: number): void {
@@ -306,6 +313,7 @@ export class MB2ESPSimulator {
     this.stop();
     this.oledClear();
     this.ledOff();
+    this.state.ledBrightness = 255;
     this.startTime = Date.now();
     // Trigger workspace execution restart callback if registered
     if (this.onRequestRestart) {
@@ -317,6 +325,7 @@ export class MB2ESPSimulator {
     this.stop();
     this.oledClear();
     this.ledOff();
+    this.state.ledBrightness = 255;
     this.startTime = Date.now();
     this.abortController = new AbortController();
     this.state.isRunning = true;

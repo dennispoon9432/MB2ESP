@@ -53,6 +53,10 @@ export const BottomBar: React.FC<BottomBarProps> = ({
     statusText = usbState.status === 'flashing' ? usbState.statusMessage : bluetoothState.statusMessage;
   } else if (statusNotice) {
     statusText = statusNotice;
+  } else if (usbState.statusMessage && usbState.statusMessage.startsWith('Uploaded!')) {
+    statusText = usbState.statusMessage;
+  } else if (bluetoothState.statusMessage && bluetoothState.statusMessage.startsWith('Uploaded!')) {
+    statusText = bluetoothState.statusMessage;
   } else if (isBleConnected && isUsbConnected) {
     const bleName = bluetoothState.deviceName || boardId;
     statusText = `Bluetooth: connected to ${bleName} | USB: connected`;
@@ -61,10 +65,8 @@ export const BottomBar: React.FC<BottomBarProps> = ({
     statusText = `Bluetooth: connected to ${bleName}`;
   } else if (isUsbConnected) {
     statusText = 'USB: connected';
-  } else if (bluetoothState.statusMessage && bluetoothState.statusMessage.startsWith('Uploaded!')) {
-    statusText = bluetoothState.statusMessage;
-  } else if (usbState.statusMessage && usbState.statusMessage.startsWith('Uploaded!')) {
-    statusText = usbState.statusMessage;
+  } else if (usbState.statusMessage === 'USB: not connected') {
+    statusText = 'USB: not connected';
   } else {
     statusText = 'Not connected';
   }

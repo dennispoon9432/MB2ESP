@@ -216,6 +216,12 @@ async function executeSingleBlock(
       break;
     }
 
+    case 'mb_led_set_brightness': {
+      const b = evalInputValue(block, 'BRIGHTNESS', sim, vars, 255);
+      sim.ledSetBrightness(Number(b));
+      break;
+    }
+
     case 'mb_pause': {
       const ms = evalInputValue(block, 'MS', sim, vars, 100);
       await sim.pause(Math.max(10, ms));
