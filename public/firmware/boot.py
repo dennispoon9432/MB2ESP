@@ -25,7 +25,16 @@ OLED_SDA = const(8)
 OLED_SCL = const(9)
 OLED_RES = const(17)        # reset line of the bare FPC panel
 WINDOW_MS = const(1500)
-VERSION = "0.3"
+VERSION = "0.4"
+
+
+def _release_pins():
+    # machine.reset() and soft resets don't clear the S3's GPIO matrix, so a pin
+    # used for PWM/servo by the previous program would keep outputting the PWM
+    # channel the new program reuses. Route every user pin back to plain GPIO input.
+    for g in (1, 2, 4, 5, 6, 7, 10, 11, 12, 13):
+        machine.mem32[0x60004554 + 4 * g] = 0x100   # GPIO_FUNCg_OUT_SEL = plain GPIO
+        machine.Pin(g, machine.Pin.IN)
 
 
 def _oled():
@@ -201,6 +210,7 @@ def _upload_mode(o):
     asyncio.run(serve())
 
 
+_release_pins()
 _o = _oled()
 if _wants_upload(_o):
     _upload_mode(_o)        # never returns (ends with machine.reset())
