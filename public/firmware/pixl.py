@@ -1,4 +1,4 @@
-# pixl.py - kid-friendly runtime for PIXL / MB2ESP on ESP32-S3 + SSD1306 128x64
+# pixl.py - kid-friendly runtime for the PIXL board (ESP32-S3 + SSD1306 128x64 OLED)
 # Generated programs:  from pixl import *  ...  run()
 import machine, time, framebuf, urandom   # urandom: used by "pick random" block
 from machine import Pin, I2C, ADC, PWM
@@ -8,15 +8,15 @@ from machine import Pin, I2C, ADC, PWM
 # Every pin does digital, PWM/servo, I2C/SPI/UART, DHT, 1-Wire and NeoPixel.
 # ADC1 = analog always; ADC2 = analog only while Wi-Fi is off (BLE is fine).
 # ---------------------------------------------------------------------------
-PINS = (
+PINS = (                    # header H1 on the PIXL PCB
     1, 2, 4, 5, 6, 7, 10,   # ADC1  touch
-    11, 12,                 # ADC2  touch
-    15, 16, 17,             # ADC2
+    11, 12, 13,             # ADC2  touch
 )
-OLED_SDA = 8         # I2C bus shared with the OLED, not in PINS
+OLED_SDA = 8         # I2C bus: OLED + sockets P1/P2, not in PINS
 OLED_SCL = 9
-BUTTON_A_GPIO = 0    # prototype: BOOT button. Final PCB: 14
-BUTTON_B_GPIO = 13   # prototype: optional button GPIO13 -> GND
+OLED_RES = 17        # OLED reset (bare FPC panel), must be pulsed before init
+BUTTONS = {"A": 41, "B": 42, "X": 40, "Y": 47}   # front buttons -> GND
+RGB_LED_GPIO = 48    # one WS2812 RGB LED
 
 
 def pin_gpio(p):
@@ -29,6 +29,8 @@ def pin_gpio(p):
 # ---------------------------------------------------------------------------
 # Screen
 # ---------------------------------------------------------------------------
+_res = Pin(OLED_RES, Pin.OUT, value=1)
+_res.value(0); time.sleep_ms(10); _res.value(1); time.sleep_ms(10)
 i2c = I2C(0, sda=Pin(OLED_SDA), scl=Pin(OLED_SCL), freq=400000)
 try:
     import ssd1306
@@ -202,10 +204,13 @@ class _Button:
         return n > 0
 
 
-button_a = _Button(BUTTON_A_GPIO)
-button_b = _Button(BUTTON_B_GPIO)
+button_a = _Button(BUTTONS["A"])
+button_b = _Button(BUTTONS["B"])
+button_x = _Button(BUTTONS["X"])
+button_y = _Button(BUTTONS["Y"])
+_buttons = {"A": button_a, "B": button_b, "X": button_x, "Y": button_y}
 
-_handlers = {"A": [], "B": [], "AB": []}
+_handlers = {"A": [], "B": [], "X": [], "Y": [], "AB": []}
 _forever = []
 _in_handler = False
 _start = time.ticks_ms()
@@ -228,16 +233,19 @@ def _dispatch():
     global _in_handler
     if _in_handler:
         return
-    a, b = button_a._presses, button_b._presses
-    if not (a or b):
+    pressed = [k for k, b in _buttons.items() if b._presses]
+    if not pressed:
         return
-    button_a._presses = button_b._presses = 0
+    for k in pressed:
+        _buttons[k]._presses = 0
     _in_handler = True
     try:
+        evs = [k for k in pressed if k in "XY"]
+        a, b = "A" in pressed, "B" in pressed
         if (a and button_b.is_pressed()) or (b and button_a.is_pressed()):
-            evs = ["AB"]
+            evs.append("AB")
         else:
-            evs = (["A"] if a else []) + (["B"] if b else [])
+            evs += (["A"] if a else []) + (["B"] if b else [])
         for ev in evs:
             for fn in _handlers[ev]:
                 fn()
@@ -311,3 +319,24 @@ def servo(p, angle):
 
 def servo_stop(p):
     _free_pwm(p)
+
+
+# ---------------------------------------------------------------------------
+# RGB LED (one WS2812 on the board), colors 0-255
+# ---------------------------------------------------------------------------
+class _RgbLed:
+    def __init__(self):
+        self._np = None
+
+    def color(self, r, g, b):
+        if self._np is None:
+            import neopixel
+            self._np = neopixel.NeoPixel(Pin(RGB_LED_GPIO), 1)
+        self._np[0] = tuple(max(0, min(255, int(v))) for v in (r, g, b))
+        self._np.write()
+
+    def off(self):
+        self.color(0, 0, 0)
+
+
+led = _RgbLed()

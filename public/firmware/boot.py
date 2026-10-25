@@ -3,13 +3,12 @@
 # Runs on EVERY reset, before main.py. It is never overwritten by uploads
 # (uploads only replace main.py), so a broken main.py can never lock you out.
 #
-# How to enter Bluetooth upload mode:
-#   Prototype (ESP32-S3 DevKit, Button A = BOOT/GPIO0):
-#       press RST, release it, then press BOOT while the screen says
-#       "Press A for upload" (1.5 s window).
-#       (Do NOT hold BOOT while pressing RST: that enters the ROM flasher.)
-#   Final PCB (Button A on a non-strapping pin, e.g. GPIO14):
-#       hold A and tap RST, same as a micro:bit.
+# How to enter Bluetooth upload mode (PIXL PCB, Button A = GPIO41):
+#   - hold A while switching the board on (or while pressing RST), or
+#   - switch on / press RST, then press A while the screen says "Press A".
+#   BOOT (GPIO0) also works in the 1.5 s window, so the ESP32-S3 DevKit
+#   prototype still works. (Never hold BOOT while resetting: that enters the
+#   ROM flasher, blank screen; just reset again.)
 #
 # BLE protocol (Nordic UART service), packets written with response:
 #   [0x01]                         START -> open main.tmp
@@ -21,16 +20,19 @@
 import machine, time
 from micropython import const
 
-UPLOAD_PIN = const(0)       # Button A. Prototype: 0 (BOOT). Final PCB: 14
+UPLOAD_PINS = (41, 0)       # Button A, and BOOT (DevKit prototype)
 OLED_SDA = const(8)
 OLED_SCL = const(9)
+OLED_RES = const(17)        # reset line of the bare FPC panel
 WINDOW_MS = const(1500)
-VERSION = "0.2"
+VERSION = "0.3"
 
 
 def _oled():
     try:
         import ssd1306
+        res = machine.Pin(OLED_RES, machine.Pin.OUT, value=1)
+        res.value(0); time.sleep_ms(10); res.value(1); time.sleep_ms(10)
         i2c = machine.I2C(0, sda=machine.Pin(OLED_SDA), scl=machine.Pin(OLED_SCL), freq=400000)
         return ssd1306.SSD1306_I2C(128, 64, i2c)
     except Exception as e:
@@ -85,8 +87,8 @@ def _rtc_flag(value=None):
 
 
 def _wants_upload(o):
-    btn = machine.Pin(UPLOAD_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
-    if btn.value() == 0:                       # held during reset (final PCB)
+    btns = [machine.Pin(p, machine.Pin.IN, machine.Pin.PULL_UP) for p in UPLOAD_PINS]
+    if btns[0].value() == 0:                   # A held while switching on / reset
         return True
     if machine.reset_cause() == machine.SOFT_RESET:
         return False                           # USB upload / Ctrl-D: start fast
@@ -95,7 +97,7 @@ def _wants_upload(o):
     _show(o, "PIXL v" + VERSION, "ID " + _board_id(), "", "Press A for", "BLE upload...")
     t0 = time.ticks_ms()
     while time.ticks_diff(time.ticks_ms(), t0) < WINDOW_MS:
-        if btn.value() == 0:
+        if any(b.value() == 0 for b in btns):
             return True
         time.sleep_ms(10)
     if o:
