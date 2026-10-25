@@ -230,7 +230,8 @@ export class MB2ESPSimulator {
   }
 
   public ledSetBrightness(val: number): void {
-    this.state.ledBrightness = Math.max(0, Math.min(255, Math.round(val)));
+    const num = isNaN(Number(val)) ? 255 : Number(val);
+    this.state.ledBrightness = Math.max(0, Math.min(255, Math.round(num)));
     this.notify();
   }
 

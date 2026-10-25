@@ -39,6 +39,7 @@ export function evalBlockValue(
 
   switch (type) {
     case 'mb_math_number':
+    case 'math_number':
       return parseFloat(block.getFieldValue('NUM')) || 0;
 
     case 'text':
@@ -218,7 +219,8 @@ async function executeSingleBlock(
 
     case 'mb_led_set_brightness': {
       const b = evalInputValue(block, 'BRIGHTNESS', sim, vars, 255);
-      sim.ledSetBrightness(Number(b));
+      const val = typeof b === 'number' && !isNaN(b) ? b : parseFloat(String(b)) || 255;
+      sim.ledSetBrightness(val);
       break;
     }
 

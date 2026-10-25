@@ -340,15 +340,24 @@ class _RgbLed:
         self._write()
 
     def _write(self):
-        if self._np is None:
-            import neopixel
-            self._np = neopixel.NeoPixel(Pin(RGB_LED_GPIO), 1)
-        scale = self._brightness / 255.0
-        self._np[0] = tuple(max(0, min(255, int(v * scale))) for v in self._rgb)
-        self._np.write()
+        try:
+            if self._np is None:
+                import neopixel
+                self._np = neopixel.NeoPixel(Pin(RGB_LED_GPIO), 1)
+            scale = self._brightness / 255.0
+            r, g, b = self._rgb
+            self._np[0] = (
+                max(0, min(255, int(r * scale))),
+                max(0, min(255, int(g * scale))),
+                max(0, min(255, int(b * scale)))
+            )
+            self._np.write()
+        except Exception:
+            pass
 
     def off(self):
-        self.color(0, 0, 0)
+        self._rgb = (0, 0, 0)
+        self._write()
 
 
 led = _RgbLed()

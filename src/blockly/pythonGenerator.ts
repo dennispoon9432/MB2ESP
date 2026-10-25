@@ -310,7 +310,35 @@ export function generatePythonCode(workspace: Blockly.Workspace, extensions: Pro
     // Loose blocks outside on_start, forever, or event blocks are discarded and do not execute
   }
 
+  const allUserCode = onStartCode + eventCode + foreverCode;
   const sections: string[] = ['from pixl import *'];
+
+  if (allUserCode.includes('led.brightness')) {
+    sections.push(`
+# Safe LED brightness compatibility for boards
+if not hasattr(led, 'brightness'):
+    def _b(v):
+        led._b = max(0, min(255, int(v)))
+        if hasattr(led, '_rgb') and led._rgb != (0, 0, 0):
+            r, g, b = led._rgb
+            s = led._b / 255.0
+            led._oc(int(r * s), int(g * s), int(b * s))
+    def _c(r, g, b):
+        led._rgb = (int(r), int(g), int(b))
+        s = getattr(led, '_b', 255) / 255.0
+        led._oc(int(r * s), int(g * s), int(b * s))
+    def _off():
+        led._rgb = (0, 0, 0)
+        if callable(getattr(led, '_ooff', None)):
+            led._ooff()
+        else:
+            led._oc(0, 0, 0)
+    led._oc = led.color
+    led._ooff = getattr(led, 'off', None)
+    led.color = _c
+    led.brightness = _b
+    led.off = _off`);
+  }
 
   if (onStartCode.trim()) {
     sections.push('\n# on start\n' + onStartCode.trimEnd());
