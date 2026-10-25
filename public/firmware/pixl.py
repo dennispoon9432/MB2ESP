@@ -186,21 +186,42 @@ display = _Display()
 class _Button:
     def __init__(self, gpio):
         self._p = Pin(gpio, Pin.IN, Pin.PULL_UP)
+        time.sleep_ms(10)  # stabilize pull-up
         self._presses = 0
-        self._last = 0
-        self._p.irq(self._irq, Pin.IRQ_FALLING)
+        self._last_press = time.ticks_ms()
+        self._last_release = time.ticks_ms()
+        self._pressed_state = (self._p.value() == 0)
+        self._p.irq(self._irq, Pin.IRQ_FALLING | Pin.IRQ_RISING)
+        self._presses = 0
 
     def _irq(self, _):
         now = time.ticks_ms()
-        if time.ticks_diff(now, self._last) > 40:  # debounce
-            self._presses += 1
-        self._last = now
+        val = self._p.value()
+        if val == 0:  # Button active LOW (pressed down)
+            if not self._pressed_state:
+                if time.ticks_diff(now, self._last_press) > 150 and time.ticks_diff(now, self._last_release) > 50:
+                    self._pressed_state = True
+                    self._presses += 1
+                    self._last_press = now
+        else:  # Button released (HIGH)
+            if self._pressed_state:
+                if time.ticks_diff(now, self._last_press) > 30:
+                    self._pressed_state = False
+                    self._last_release = now
 
     def is_pressed(self):
+        val = (self._p.value() == 0)
+        if not val:
+            self._pressed_state = False
+            return False
+        time.sleep_us(50)  # filter microsecond line noise
         return self._p.value() == 0
 
     def was_pressed(self):
-        n = self._presses; self._presses = 0
+        n = self._presses
+        self._presses = 0
+        if self._p.value() == 1:
+            self._pressed_state = False
         return n > 0
 
 
@@ -209,6 +230,11 @@ button_b = _Button(BUTTONS["B"])
 button_x = _Button(BUTTONS["X"])
 button_y = _Button(BUTTONS["Y"])
 _buttons = {"A": button_a, "B": button_b, "X": button_x, "Y": button_y}
+
+# Flush any boot/upload transition artifacts
+time.sleep_ms(10)
+for _b in _buttons.values():
+    _b._presses = 0
 
 _handlers = {"A": [], "B": [], "X": [], "Y": [], "AB": []}
 _forever = []
@@ -233,6 +259,11 @@ def _dispatch():
     global _in_handler
     if _in_handler:
         return
+    # Resync button states when physical pin is released
+    for b in _buttons.values():
+        if b._p.value() == 1:
+            b._pressed_state = False
+
     pressed = [k for k, b in _buttons.items() if b._presses]
     if not pressed:
         return
@@ -242,7 +273,7 @@ def _dispatch():
     try:
         evs = [k for k in pressed if k in "XY"]
         a, b = "A" in pressed, "B" in pressed
-        if (a and button_b.is_pressed()) or (b and button_a.is_pressed()):
+        if (a and b) or (a and button_b.is_pressed()) or (b and button_a.is_pressed()):
             evs.append("AB")
         else:
             evs += (["A"] if a else []) + (["B"] if b else [])
@@ -329,6 +360,13 @@ class _RgbLed:
         self._np = None
         self._brightness = 255
         self._rgb = (0, 0, 0)
+        try:
+            import neopixel
+            self._np = neopixel.NeoPixel(Pin(RGB_LED_GPIO), 1)
+            self._np[0] = (0, 0, 0)
+            self._np.write()
+        except Exception:
+            pass
 
     def brightness(self, val):
         self._brightness = max(0, min(255, int(val)))

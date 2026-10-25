@@ -387,7 +387,7 @@ export function generatePythonCode(workspace: Blockly.Workspace, extensions: Pro
   }
 
   const allUserCode = onStartCode + eventCode + foreverCode;
-  const sections: string[] = ['from pixl import *'];
+  const sections: string[] = ['from pixl import *', 'led.off()'];
 
   // Declare workspace variables at module level
   if (wsVars.length > 0) {

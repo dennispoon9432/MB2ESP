@@ -35,6 +35,14 @@ def _release_pins():
     for g in (1, 2, 4, 5, 6, 7, 10, 11, 12, 13):
         machine.mem32[0x60004554 + 4 * g] = 0x100   # GPIO_FUNCg_OUT_SEL = plain GPIO
         machine.Pin(g, machine.Pin.IN)
+    # Blank the WS2812 RGB LED on GPIO 48
+    try:
+        import neopixel
+        np = neopixel.NeoPixel(machine.Pin(48), 1)
+        np[0] = (0, 0, 0)
+        np.write()
+    except Exception:
+        pass
 
 
 def _oled():

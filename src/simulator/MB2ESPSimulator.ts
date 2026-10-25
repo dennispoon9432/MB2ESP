@@ -161,9 +161,18 @@ export class MB2ESPSimulator {
     this.notify();
   }
 
+  private lastButtonPressTime: { [key: string]: number } = {};
+
   // --- Buttons (A, B, X, Y, AB) ---
 
   public async pressButton(btn: 'A' | 'B' | 'X' | 'Y' | 'AB'): Promise<void> {
+    const now = Date.now();
+    const last = this.lastButtonPressTime[btn] || 0;
+    if (now - last < 200) {
+      return; // Debounce rapid clicks
+    }
+    this.lastButtonPressTime[btn] = now;
+
     if (btn === 'A') {
       this.state.buttonA = true;
     } else if (btn === 'B') {
