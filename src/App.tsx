@@ -333,8 +333,16 @@ export default function App() {
 
   // Helper to compile Python code including any installed extensions
   const getFullPythonCode = (): string => {
+    let baseCode = activeProject.pythonCode;
+    if (!activeProject.isPythonEdited && workspaceRef.current) {
+      try {
+        baseCode = generatePythonCode(workspaceRef.current, activeProject.extensions);
+      } catch (e) {
+        console.warn('generatePythonCode error in getFullPythonCode:', e);
+      }
+    }
     const extPys = activeProject.extensions.map(e => `# Extension: ${e.name}\n${e.extPy}`).join('\n\n');
-    let code = extPys ? `${extPys}\n\n${activeProject.pythonCode}` : activeProject.pythonCode;
+    let code = extPys ? `${extPys}\n\n${baseCode}` : baseCode;
     if (code.includes('led.brightness') && !code.includes('led._oc')) {
       const polyfill = `\n# Safe LED brightness compatibility for boards\nif not hasattr(led, 'brightness'):\n    def _b(v):\n        led._b = max(0, min(255, int(v)))\n        if hasattr(led, '_rgb') and led._rgb != (0, 0, 0):\n            r, g, b = led._rgb\n            s = led._b / 255.0\n            led._oc(int(r * s), int(g * s), int(b * s))\n    def _c(r, g, b):\n        led._rgb = (int(r), int(g), int(b))\n        s = getattr(led, '_b', 255) / 255.0\n        led._oc(int(r * s), int(g * s), int(b * s))\n    def _off():\n        led._rgb = (0, 0, 0)\n        if callable(getattr(led, '_ooff', None)):\n            led._ooff()\n        else:\n            led._oc(0, 0, 0)\n    led._oc = led.color\n    led._ooff = getattr(led, 'off', None)\n    led.color = _c\n    led.brightness = _b\n    led.off = _off\n`;
       if (code.includes('from pixl import *')) {

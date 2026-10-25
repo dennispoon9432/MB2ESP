@@ -2,6 +2,8 @@ import * as Blockly from 'blockly';
 import { pythonGenerator, Order } from 'blockly/python';
 import { ProjectExtension } from '../types/project';
 
+pythonGenerator.INDENT = '    ';
+
 export function getCleanVariableName(block: Blockly.Block): string {
   const varField = block.getField('VAR');
   const varModel = varField && 'getVariable' in varField ? (varField as any).getVariable() : null;
@@ -13,10 +15,11 @@ export function getCleanVariableName(block: Blockly.Block): string {
 export function getWorkspaceVariableNames(workspace: Blockly.Workspace): string[] {
   try {
     const ws = workspace as any;
-    const vars: any[] = ws.getAllVariables
-      ? ws.getAllVariables()
-      : (ws.getVariableMap ? ws.getVariableMap().getAllVariables() : []);
-    const names = vars.map((v: any) => {
+    // Prefer variables that are actually used in workspace blocks
+    const usedVars: any[] = (Blockly.Variables as any)?.allUsedVarModels
+      ? (Blockly.Variables as any).allUsedVarModels(workspace)
+      : (ws.getAllVariables ? ws.getAllVariables() : (ws.getVariableMap ? ws.getVariableMap().getAllVariables() : []));
+    const names = usedVars.map((v: any) => {
       const raw = v?.name || 'item';
       const clean = String(raw).trim().replace(/[^\w]/g, '_');
       return /^[0-9]/.test(clean) ? `v_${clean}` : (clean || 'item');
@@ -30,6 +33,7 @@ export function getWorkspaceVariableNames(workspace: Blockly.Workspace): string[
 let generatorsRegistered = false;
 
 export function registerPythonGenerators(): void {
+  pythonGenerator.INDENT = '    ';
   if (generatorsRegistered) return;
   generatorsRegistered = true;
 
@@ -40,11 +44,13 @@ export function registerPythonGenerators(): void {
   };
 
   pythonGenerator.forBlock['mb_forever'] = function (block) {
+    const doCode = pythonGenerator.statementToCode(block, 'DO');
+    if (!doCode || !doCode.trim()) {
+      return '';
+    }
     const wsVars = getWorkspaceVariableNames(block.workspace);
     const globalHeader = wsVars.length > 0 ? `    global ${wsVars.join(', ')}\n` : '';
-    const doCode = pythonGenerator.statementToCode(block, 'DO');
-    const safeBody = (globalHeader + (doCode || '    pass\n')).trimEnd();
-    return `\n@forever\ndef forever_loop():\n${safeBody}\n`;
+    return `\n@forever\ndef forever_loop():\n${globalHeader}${doCode}`;
   };
 
   pythonGenerator.forBlock['mb_pause'] = function (block) {
@@ -59,8 +65,8 @@ export function registerPythonGenerators(): void {
     const wsVars = getWorkspaceVariableNames(block.workspace);
     const globalHeader = wsVars.length > 0 ? `    global ${wsVars.join(', ')}\n` : '';
     const doCode = pythonGenerator.statementToCode(block, 'DO');
-    const safeBody = (globalHeader + (doCode || '    pass\n')).trimEnd();
-    return `\n@on_button("${btn}")\ndef ${funcName}():\n${safeBody}\n`;
+    const safeBody = doCode && doCode.trim() ? doCode : '    pass\n';
+    return `\n@on_button("${btn}")\ndef ${funcName}():\n${globalHeader}${safeBody}`;
   };
 
   pythonGenerator.forBlock['mb_button_is_pressed'] = function (block) {
@@ -361,17 +367,21 @@ export function generatePythonCode(workspace: Blockly.Workspace, extensions: Pro
     if (type === 'mb_on_start') {
       const inner = pythonGenerator.statementToCode(block, 'DO');
       if (inner && inner.trim()) {
-        // Strip 2 spaces of indentation for top-level on_start statements
+        // Strip 4 spaces (or 2 spaces) of block statement indentation for top-level on_start
         const unindented = inner
           .split('\n')
-          .map(line => line.startsWith('  ') ? line.slice(2) : line)
+          .map(line => line.startsWith('    ') ? line.slice(4) : (line.startsWith('  ') ? line.slice(2) : line))
           .join('\n');
         onStartCode += unindented;
       }
     } else if (type === 'mb_forever') {
-      foreverCode += pythonGenerator.blockToCode(block);
+      const fCode = String(pythonGenerator.blockToCode(block) || '');
+      if (fCode.trim()) {
+        foreverCode += fCode;
+      }
     } else if (type === 'mb_on_button_pressed') {
-      eventCode += pythonGenerator.blockToCode(block);
+      const eCode = String(pythonGenerator.blockToCode(block) || '');
+      eventCode += eCode;
     }
     // Loose blocks outside on_start, forever, or event blocks are discarded and do not execute
   }
