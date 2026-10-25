@@ -123,7 +123,12 @@ export function evalBlockValue(
     }
 
     case 'variables_get': {
+      const varField = block.getField('VAR');
       const varId = block.getFieldValue('VAR');
+      const varModel = varField && 'getVariable' in varField ? (varField as any).getVariable() : null;
+      if (varModel?.name && vars[varModel.name] !== undefined) {
+        return vars[varModel.name];
+      }
       return vars[varId] ?? 0;
     }
 
@@ -219,7 +224,8 @@ async function executeSingleBlock(
 
     case 'mb_led_set_brightness': {
       const b = evalInputValue(block, 'BRIGHTNESS', sim, vars, 255);
-      const val = typeof b === 'number' && !isNaN(b) ? b : parseFloat(String(b)) || 255;
+      const parsed = typeof b === 'number' ? b : parseFloat(String(b));
+      const val = !isNaN(parsed) ? parsed : 255;
       sim.ledSetBrightness(val);
       break;
     }
@@ -303,9 +309,30 @@ async function executeSingleBlock(
     }
 
     case 'variables_set': {
+      const varField = block.getField('VAR');
       const varId = block.getFieldValue('VAR');
+      const varModel = varField && 'getVariable' in varField ? (varField as any).getVariable() : null;
       const val = evalInputValue(block, 'VALUE', sim, vars, 0);
       vars[varId] = val;
+      if (varModel?.name) {
+        vars[varModel.name] = val;
+      }
+      break;
+    }
+
+    case 'math_change': {
+      const varField = block.getField('VAR');
+      const varId = block.getFieldValue('VAR');
+      const varModel = varField && 'getVariable' in varField ? (varField as any).getVariable() : null;
+      const delta = evalInputValue(block, 'DELTA', sim, vars, 1);
+      const currentVal = (varModel?.name && vars[varModel.name] !== undefined)
+        ? vars[varModel.name]
+        : (vars[varId] ?? 0);
+      const newVal = (Number(currentVal) || 0) + (Number(delta) || 0);
+      vars[varId] = newVal;
+      if (varModel?.name) {
+        vars[varModel.name] = newVal;
+      }
       break;
     }
 
@@ -321,17 +348,29 @@ export async function executeWorkspace(workspace: Blockly.Workspace, sim: MB2ESP
   const signal = sim.prepareNewRun();
   const vars: Record<string, any> = {};
 
+  // Pre-populate any workspace variables with default 0
+  try {
+    const ws = workspace as any;
+    const allVarModels: any[] = ws.getAllVariables
+      ? ws.getAllVariables()
+      : (ws.getVariableMap ? ws.getVariableMap().getAllVariables() : []);
+    for (const vm of allVarModels) {
+      if (vm.getId) vars[vm.getId()] = 0;
+      if (vm.name) vars[vm.name] = 0;
+    }
+  } catch (e) {}
+
   const topBlocks = workspace.getTopBlocks(true);
   const onStartBlock = topBlocks.find(b => b.type === 'mb_on_start' && b.isEnabled());
   const foreverBlock = topBlocks.find(b => b.type === 'mb_forever' && b.isEnabled());
   const buttonBlocks = topBlocks.filter(b => b.type === 'mb_on_button_pressed' && b.isEnabled());
 
-  // 1. Register Button handlers
+  // 1. Register Button handlers (pass shared vars by reference so updates persist)
   for (const btnBlock of buttonBlocks) {
     const btn = (btnBlock.getFieldValue('BUTTON') || 'A') as 'A' | 'B' | 'X' | 'Y' | 'AB';
     const doBlock = btnBlock.getInputTargetBlock('DO');
     sim.registerButtonHandler(btn, async () => {
-      await runBlockStatement(doBlock, sim, { ...vars });
+      await runBlockStatement(doBlock, sim, vars);
     });
   }
 

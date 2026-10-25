@@ -2,6 +2,31 @@ import * as Blockly from 'blockly';
 import { pythonGenerator, Order } from 'blockly/python';
 import { ProjectExtension } from '../types/project';
 
+export function getCleanVariableName(block: Blockly.Block): string {
+  const varField = block.getField('VAR');
+  const varModel = varField && 'getVariable' in varField ? (varField as any).getVariable() : null;
+  const rawName = varModel ? varModel.name : (block.getFieldValue('VAR') || 'item');
+  const clean = String(rawName).trim().replace(/[^\w]/g, '_');
+  return /^[0-9]/.test(clean) ? `v_${clean}` : (clean || 'item');
+}
+
+export function getWorkspaceVariableNames(workspace: Blockly.Workspace): string[] {
+  try {
+    const ws = workspace as any;
+    const vars: any[] = ws.getAllVariables
+      ? ws.getAllVariables()
+      : (ws.getVariableMap ? ws.getVariableMap().getAllVariables() : []);
+    const names = vars.map((v: any) => {
+      const raw = v?.name || 'item';
+      const clean = String(raw).trim().replace(/[^\w]/g, '_');
+      return /^[0-9]/.test(clean) ? `v_${clean}` : (clean || 'item');
+    });
+    return Array.from(new Set(names));
+  } catch (e) {
+    return [];
+  }
+}
+
 let generatorsRegistered = false;
 
 export function registerPythonGenerators(): void {
@@ -15,8 +40,10 @@ export function registerPythonGenerators(): void {
   };
 
   pythonGenerator.forBlock['mb_forever'] = function (block) {
+    const wsVars = getWorkspaceVariableNames(block.workspace);
+    const globalHeader = wsVars.length > 0 ? `    global ${wsVars.join(', ')}\n` : '';
     const doCode = pythonGenerator.statementToCode(block, 'DO');
-    const safeBody = doCode.trim() ? doCode : '    pass\n';
+    const safeBody = (globalHeader + (doCode || '    pass\n')).trimEnd();
     return `\n@forever\ndef forever_loop():\n${safeBody}\n`;
   };
 
@@ -29,8 +56,10 @@ export function registerPythonGenerators(): void {
   pythonGenerator.forBlock['mb_on_button_pressed'] = function (block) {
     const btn = block.getFieldValue('BUTTON') || 'A';
     const funcName = `on_button_${btn.toLowerCase().replace('+', '_')}`;
+    const wsVars = getWorkspaceVariableNames(block.workspace);
+    const globalHeader = wsVars.length > 0 ? `    global ${wsVars.join(', ')}\n` : '';
     const doCode = pythonGenerator.statementToCode(block, 'DO');
-    const safeBody = doCode.trim() ? doCode : '    pass\n';
+    const safeBody = (globalHeader + (doCode || '    pass\n')).trimEnd();
     return `\n@on_button("${btn}")\ndef ${funcName}():\n${safeBody}\n`;
   };
 
@@ -82,7 +111,7 @@ export function registerPythonGenerators(): void {
     const text = pythonGenerator.valueToCode(block, 'TEXT', Order.NONE) || '""';
     const x = pythonGenerator.valueToCode(block, 'X', Order.NONE) || '0';
     const y = pythonGenerator.valueToCode(block, 'Y', Order.NONE) || '0';
-    return `oled.text(${text}, ${x}, ${y})\n`;
+    return `oled.text(str(${text}), ${x}, ${y})\n`;
   };
 
   pythonGenerator.forBlock['mb_oled_draw_line'] = function (block) {
@@ -240,6 +269,36 @@ export function registerPythonGenerators(): void {
     const num = pythonGenerator.valueToCode(block, 'NUM', Order.NONE) || '0';
     return [`${op}(${num})`, Order.FUNCTION_CALL];
   };
+
+  // Standard text block
+  pythonGenerator.forBlock['text'] = function (block) {
+    const textVal = block.getFieldValue('TEXT') || '';
+    return [JSON.stringify(textVal), Order.ATOMIC];
+  };
+
+  // Standard math_number block
+  pythonGenerator.forBlock['math_number'] = function (block) {
+    const num = block.getFieldValue('NUM') || '0';
+    return [num, Order.ATOMIC];
+  };
+
+  // Variables category
+  pythonGenerator.forBlock['variables_get'] = function (block) {
+    const varName = getCleanVariableName(block);
+    return [varName, Order.ATOMIC];
+  };
+
+  pythonGenerator.forBlock['variables_set'] = function (block) {
+    const varName = getCleanVariableName(block);
+    const val = pythonGenerator.valueToCode(block, 'VALUE', Order.NONE) || '0';
+    return `${varName} = ${val}\n`;
+  };
+
+  pythonGenerator.forBlock['math_change'] = function (block) {
+    const varName = getCleanVariableName(block);
+    const delta = pythonGenerator.valueToCode(block, 'DELTA', Order.ADDITIVE) || '1';
+    return `${varName} = (${varName} if isinstance(${varName}, (int, float)) else 0) + ${delta}\n`;
+  };
 }
 
 /**
@@ -281,6 +340,13 @@ export function generatePythonCode(workspace: Blockly.Workspace, extensions: Pro
   registerPythonGenerators();
   registerExtensionPythonGenerators(extensions);
 
+  try {
+    pythonGenerator.init(workspace);
+  } catch (e) {
+    // ignore if already initiated
+  }
+
+  const wsVars = getWorkspaceVariableNames(workspace);
   const topBlocks = workspace.getTopBlocks(true);
 
   // Group blocks by type - only recognized top-level event/loop/start containers are included
@@ -312,6 +378,11 @@ export function generatePythonCode(workspace: Blockly.Workspace, extensions: Pro
 
   const allUserCode = onStartCode + eventCode + foreverCode;
   const sections: string[] = ['from pixl import *'];
+
+  // Declare workspace variables at module level
+  if (wsVars.length > 0) {
+    sections.push('\n# Variables\n' + wsVars.map(v => `${v} = 0`).join('\n'));
+  }
 
   if (allUserCode.includes('led.brightness')) {
     sections.push(`

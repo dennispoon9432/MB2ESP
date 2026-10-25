@@ -24,6 +24,7 @@ import { bluetoothService, BluetoothState } from './services/bluetooth';
 import { usbSerialService, USBSerialState } from './services/usbSerial';
 import { MB2ESPSimulator } from './simulator/MB2ESPSimulator';
 import { executeWorkspace } from './simulator/simulatorInterpreter';
+import { generatePythonCode } from './blockly/pythonGenerator';
 import { getStrings } from './i18n/strings';
 import { loadSavedBoardId, persistBoardId, cleanBoardId, isValidBoardId } from './utils/boardId';
 
@@ -225,12 +226,38 @@ export default function App() {
 
   // Switch between Blocks and Python mode
   const handleToggleMode = (targetIsPython: boolean) => {
-    const updated = {
+    let nextXml = activeProject.blocklyXml;
+    let nextPython = activeProject.pythonCode;
+
+    if (workspaceRef.current) {
+      try {
+        const xmlDom = Blockly.Xml.workspaceToDom(workspaceRef.current);
+        nextXml = Blockly.Xml.domToText(xmlDom);
+        const pyCode = generatePythonCode(workspaceRef.current, activeProject.extensions);
+        if (!activeProject.isPythonEdited) {
+          nextPython = pyCode;
+        }
+      } catch (err) {
+        console.warn('Error serializing on mode toggle:', err);
+      }
+    }
+
+    const updated: Project = {
       ...activeProject,
-      isPythonMode: targetIsPython
+      isPythonMode: targetIsPython,
+      blocklyXml: nextXml,
+      pythonCode: nextPython
     };
     saveProject(updated);
     setActiveProject(updated);
+
+    if (!targetIsPython) {
+      setTimeout(() => {
+        if (workspaceRef.current) {
+          Blockly.svgResize(workspaceRef.current);
+        }
+      }, 60);
+    }
   };
 
   // Unlock Python code for direct editing
@@ -536,7 +563,7 @@ export default function App() {
 
             {/* Right Editor Area */}
             <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-              {activeProject.isPythonMode ? (
+              <div className={`flex-1 flex flex-col h-full overflow-hidden ${activeProject.isPythonMode ? '' : 'hidden'}`}>
                 <PythonEditor
                   pythonCode={activeProject.pythonCode}
                   isPythonEdited={activeProject.isPythonEdited}
@@ -545,15 +572,18 @@ export default function App() {
                   onRevertToBlocks={handleRevertToBlocks}
                   strings={strings}
                 />
-              ) : (
+              </div>
+
+              <div className={`flex-1 flex flex-col h-full overflow-hidden ${activeProject.isPythonMode ? 'hidden' : ''}`}>
                 <BlocklyWorkspace
+                  key={activeProject.id}
                   project={activeProject}
                   onWorkspaceChange={handleWorkspaceChange}
                   onOpenExtensions={handleOpenExtensions}
                   strings={strings}
                   workspaceRef={workspaceRef}
                 />
-              )}
+              </div>
 
               {/* Collapsible Serial Console */}
               {isSerialOpen && (

@@ -174,7 +174,15 @@ export const BlocklyWorkspace: React.FC<BlocklyWorkspaceProps> = ({
 
     return () => {
       resizeObserver.disconnect();
-      if (changeTimeoutRef.current) clearTimeout(changeTimeoutRef.current);
+      if (changeTimeoutRef.current) {
+        clearTimeout(changeTimeoutRef.current);
+        try {
+          const xmlDom = Blockly.Xml.workspaceToDom(ws);
+          const xmlText = Blockly.Xml.domToText(xmlDom);
+          const pyCode = generatePythonCode(ws, project.extensions);
+          onWorkspaceChange(xmlText, pyCode);
+        } catch (e) {}
+      }
       ws.dispose();
       workspaceRef.current = null;
     };
